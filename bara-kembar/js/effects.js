@@ -6,7 +6,7 @@ function spawnProj(owner, x, y, ang, sp, dmg, o) {
 function updateProj(dt) {
   for (const pr of L.projectiles) {
     pr.x += pr.vx * dt; pr.y += pr.vy * dt; pr.life -= dt;
-    if (pr.kind === 'orb' && Math.random() < .5) part(pr.x, pr.y, rand(-10, 10), rand(-10, 10), .35, pr.owner === 'p' ? '#9ff' : '#ff8a3a', 2.5, true);
+    if (pr.kind === 'orb' && Math.random() < .5) part(pr.x, pr.y, rand(-10, 10), rand(-10, 10), .35, pr.owner === 'p' ? '#9ff' : (pr.col || '#ff8a3a'), 2.5, true);
     if (pr.full && Math.random() < .7) part(pr.x, pr.y, 0, 0, .25, '#ffe9a8', 2, true);
     if (tileSolidW(pr.x, pr.y)) { pr.life = 0; sparks(pr.x, pr.y, 5, pr.kind === 'orb' ? '#ff8a3a' : '#d8c8a8'); Snd.arrowHit(); continue; }
     if (pr.owner === 'p') {

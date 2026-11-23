@@ -235,6 +235,24 @@ function drawEnemy(e) {
       ctx.strokeStyle = col; ctx.lineWidth = 1.4; ctx.stroke();
       ctx.fillStyle = e.p2 ? '#ff7a3a' : '#ffd36a'; ctx.beginPath(); ctx.arc(3.6, -2, .9, 0, TAU); ctx.arc(3.6, 2, .9, 0, TAU); ctx.fill();
     };
+  } else if (e.type === 'knight') {
+    const glow = e.p2 ? '#c9a8ff' : '#f0e6c8', dash = e.atk && e.atk.def === DEF.kDash && e.atk.ph === 'a';
+    o.lean = dash ? 3 : o.lean;
+    o.under = () => { // jubah berkibar
+      ctx.fillStyle = e.p2 ? 'rgba(70,40,110,.8)' : 'rgba(60,50,70,.75)'; ctx.beginPath();
+      ctx.moveTo(-1, -6); ctx.quadraticCurveTo(-13 - (dash ? 6 : 0), Math.sin(G.t * 6) * 3, -1, 6); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = col; ctx.lineWidth = e.lw;
+    };
+    o.extra = () => { // pedang panjang ramping
+      const [hx, hy] = o.armR, a = st === 'stag' || st === 'parried' ? 2.6 : wa;
+      ctx.strokeStyle = glow; ctx.lineWidth = 1.8; line(hx, hy, hx + Math.cos(a) * 26, hy + Math.sin(a) * 26);
+      if (e.p2) { ctx.globalAlpha = .35; ctx.lineWidth = 5; line(hx, hy, hx + Math.cos(a) * 26, hy + Math.sin(a) * 26); ctx.globalAlpha = 1; }
+      ctx.strokeStyle = '#6a5a3a'; ctx.lineWidth = 2.2; line(hx - Math.sin(a) * 3.5, hy + Math.cos(a) * 3.5, hx + Math.sin(a) * 3.5, hy - Math.cos(a) * 3.5);
+    };
+    o.top = () => { // helm berjambul
+      ctx.strokeStyle = glow; ctx.lineWidth = 1.6; line(3.5, 0, 6, 0);
+      ctx.strokeStyle = e.p2 ? '#a070ff' : '#b84a3a'; ctx.lineWidth = 2.2; line(-1, 0, -8, Math.sin(G.t * 5) * 1.5);
+    };
   }
   drawStick(o);
   if (st === 'parried') {
@@ -318,7 +336,7 @@ function render() {
       const a = Math.atan2(pr.vy, pr.vx); ctx.strokeStyle = pr.owner === 'p' ? (pr.full ? '#fff3b0' : '#e8e0d0') : '#d8a0ff'; ctx.lineWidth = 2;
       line(pr.x - Math.cos(a) * 12, pr.y - Math.sin(a) * 12, pr.x + Math.cos(a) * 3, pr.y + Math.sin(a) * 3);
     } else {
-      ctx.fillStyle = pr.owner === 'p' ? '#bff' : '#ffb04a'; ctx.beginPath(); ctx.arc(pr.x, pr.y, pr.r, 0, TAU); ctx.fill();
+      ctx.fillStyle = pr.owner === 'p' ? '#bff' : (pr.col || '#ffb04a'); ctx.beginPath(); ctx.arc(pr.x, pr.y, pr.r, 0, TAU); ctx.fill();
       ctx.fillStyle = '#fff6d0'; ctx.beginPath(); ctx.arc(pr.x, pr.y, pr.r * .45, 0, TAU); ctx.fill();
     }
   }
@@ -351,7 +369,7 @@ function render() {
       ctx.fillStyle = '#b3261e'; ctx.fillRect(x, y, w * e.hp / e.maxHp, 3);
     }
   }
-  for (const pr of L.projectiles) if (pr.kind === 'orb') { ctx.fillStyle = pr.owner === 'p' ? 'rgba(160,255,255,.35)' : 'rgba(255,150,60,.35)'; ctx.beginPath(); ctx.arc(pr.x, pr.y, pr.r * 2, 0, TAU); ctx.fill(); }
+  for (const pr of L.projectiles) if (pr.kind === 'orb') { ctx.fillStyle = pr.owner === 'p' ? 'rgba(160,255,255,.35)' : pr.col ? 'rgba(200,170,255,.35)' : 'rgba(255,150,60,.35)'; ctx.beginPath(); ctx.arc(pr.x, pr.y, pr.r * 2, 0, TAU); ctx.fill(); }
   // penanda pemain di atas gelap
   for (const p of players) if (p.alive) { ctx.fillStyle = `rgba(${p.glow},.9)`; ctx.beginPath(); const a = p.face; ctx.moveTo(p.x + Math.cos(a) * 24, p.y + Math.sin(a) * 24); ctx.lineTo(p.x + Math.cos(a + .25) * 19, p.y + Math.sin(a + .25) * 19); ctx.lineTo(p.x + Math.cos(a - .25) * 19, p.y + Math.sin(a - .25) * 19); ctx.fill(); }
 
@@ -368,7 +386,7 @@ function drawLighting() {
   const lw = lightCv.width, lh = lightCv.height, s = .5;
   lctx.globalCompositeOperation = 'source-over';
   lctx.clearRect(0, 0, lw, lh);
-  lctx.fillStyle = `rgba(4,2,8,${L.def.dark})`; lctx.fillRect(0, 0, lw, lh);
+  lctx.fillStyle = `rgba(4,2,8,${Math.min(.95, L.def.dark + (L.eclipse || 0))})`; lctx.fillRect(0, 0, lw, lh);
   lctx.globalCompositeOperation = 'destination-out';
   const toS = (x, y) => [((x - cam.x) * cam.z + W / 2) * s, ((y - cam.y) * cam.z + H / 2) * s];
   const light = (x, y, r, a = 1) => {

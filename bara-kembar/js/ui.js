@@ -92,15 +92,7 @@ function drawHUD(p, LW, LH) {
   if (p.state === 'down') { txt('TUMBANG — tunggu rekanmu (' + Math.ceil(p.downT) + ')', LW / 2, my, 13 * u, '#ff8a70'); my -= 20 * u; }
   if (p.dead) { txt('Gugur — rekanmu bisa membangkitkanmu di api unggun', LW / 2, my, 12 * u, '#c8b8a8'); my -= 20 * u; }
   const hintA = G.hintT > 0 ? clamp(G.hintT, 0, 1) : p.swapHint > 0 ? clamp(p.swapHint, 0, 1) : 0;
-  if (hintA > 0 && p.alive) {
-    ctx.globalAlpha = hintA * .9;
-    const lines = p.weapon === 'sword'
-      ? ['Tombol 1: tebas — tekan lagi saat pedang berkilau untuk kombo', 'Tahan 2: tameng — angkat tepat sebelum kena = TANGKIS']
-      : ['Tahan & lepas 1: panah — tahan lebih lama = tembakan kuat', 'Tombol 2: guling ke depan (kebal sesaat)'];
-    lines.push('Ketuk 3: ganti senjata • Tahan 3: minum ramuan');
-    for (const s of lines) { txt(s, LW / 2, my, 11 * u, '#e8dcc0', 'center', 'sans-serif', '500'); my -= 16 * u; }
-    ctx.globalAlpha = 1;
-  }
+  if (hintA > 0 && p.alive) drawCallouts(p, LW, base, hintA, G.hintT > 0);
   // banner
   for (const b of G.banners) {
     const a = clamp(Math.min(b.t * 2, (b.dur - b.t) * 1.5), 0, 1); if (a <= 0) continue;
@@ -114,6 +106,46 @@ function drawHUD(p, LW, LH) {
     } else if (b.sub) txt(b.sub, LW / 2, cy, 15 * u, b.color, 'center', SERIF, 'italic 400');
     ctx.globalAlpha = 1;
   }
+}
+// ---------- petunjuk tombol: label + garis panah langsung ke tiap tombol ----------
+// Label disusun bertingkat (tombol paling kiri paling bawah) supaya garisnya tidak menembus label lain.
+const CALLOUTS = {
+  sword: [['Tebas', 'tekan lagi saat pedang berkilau = kombo'], ['Tahan: Tameng', 'angkat tepat sebelum kena = TANGKIS']],
+  bow: [['Tahan & lepas: Panah', 'tahan lebih lama = tembakan kuat'], ['Guling', 'kebal sesaat']],
+  swap: ['Ketuk: Ganti senjata', 'tahan: minum ramuan'],
+};
+function drawCallouts(p, LW, base, alpha, withJoy) {
+  const u = U, c = ctrls[p.i], list = CALLOUTS[p.weapon].concat([CALLOUTS.swap]);
+  const pulse = .5 + Math.sin(G.t * 6) * .5;
+  const items = [0, 1, 2].map(k => ({ k, b: c.b[k], f: screenToFrame(p.i, c.b[k]), text: list[k] })).sort((a, b) => a.f.x - b.f.x);
+  ctx.save(); ctx.globalAlpha = alpha;
+  const label = (x, y, align, [title, sub]) => {
+    ctx.font = `700 ${11 * u}px sans-serif`; const w1 = ctx.measureText(title).width;
+    ctx.font = `500 ${9 * u}px sans-serif`; const w2 = ctx.measureText(sub).width;
+    const w = Math.max(w1, w2) + 12 * u, x0 = align === 'right' ? x - w : x;
+    rr(x0, y - 9 * u, w, 25 * u, 5 * u); ctx.fillStyle = 'rgba(12,9,14,.78)'; ctx.fill();
+    ctx.strokeStyle = `rgba(${p.glow},.5)`; ctx.lineWidth = 1; ctx.stroke();
+    const tx = align === 'right' ? x - 6 * u : x + 6 * u;
+    txt(title, tx, y - 1 * u, 11 * u, '#fff1d0', align, 'sans-serif', '700');
+    txt(sub, tx, y + 10 * u, 9 * u, '#d8ccb0', align, 'sans-serif', '500');
+  };
+  const arrow = (x0, y0, x1, y1) => {
+    ctx.strokeStyle = `rgba(${p.glow},.9)`; ctx.lineWidth = 1.6; ctx.setLineDash([4 * u, 3 * u]); line(x0, y0, x1, y1); ctx.setLineDash([]);
+    const a = Math.atan2(y1 - y0, x1 - x0), s = 6 * u; ctx.fillStyle = `rgba(${p.glow},.95)`;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - Math.cos(a - .45) * s, y1 - Math.sin(a - .45) * s); ctx.lineTo(x1 - Math.cos(a + .45) * s, y1 - Math.sin(a + .45) * s); ctx.fill();
+  };
+  items.forEach((it, n) => {
+    const y = base - (30 + n * 32) * u, xr = Math.min(it.f.x + it.b.r, LW - 6 * u);
+    label(xr, y, 'right', it.text);
+    arrow(it.f.x, y + 17 * u, it.f.x, it.f.y - it.b.r - 5 * u);
+    ctx.strokeStyle = `rgba(255,241,208,${.35 + pulse * .5})`; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(it.f.x, it.f.y, it.b.r + 4 * u, 0, TAU); ctx.stroke();
+  });
+  if (withJoy) { // joystick hanya dijelaskan di awal level
+    const j = screenToFrame(p.i, c.joy), y = base - 62 * u;
+    label(10 * u, y, 'left', ['Geser: bergerak', 'sentuh & geser di sisi kiri']);
+    arrow(j.x, y + 17 * u, j.x, j.y - c.joy.r - 5 * u);
+  }
+  ctx.restore();
 }
 function drawOver() {
   const k = clamp(G.overT / 1.2, 0, 1);

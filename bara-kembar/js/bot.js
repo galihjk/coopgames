@@ -7,17 +7,18 @@
 //
 //  • Senjata: cenderung melengkapi rekan — rekan pakai busur → bot pedang,
 //    rekan pakai pedang → bot busur (tidak selalu; lihat WANT_COMPLEMENT).
-//  • Kemampuan: tiap permainan diundi acak (brain.skill). Makin rendah,
-//    makin sering bot telat/terlalu cepat menghindar, meleset, bengong,
-//    dan lupa menyambung kombo.
+//  • Kemampuan: diundi ulang acak setiap beberapa detik (brain.skill).
+//    Makin rendah, makin sering bot telat/terlalu cepat menghindar,
+//    meleset, bengong, dan lupa menyambung kombo.
 // =====================================================================
 const SKILL_MIN = .3, SKILL_MAX = .8;   // rentang undian kemampuan (1 = sempurna)
+const SKILL_EVERY = [10, 25];           // kemampuan diundi ulang tiap 10–25 detik
 const WANT_COMPLEMENT = .8;             // peluang memilih senjata pelengkap rekan
 
 let brain = null;
 function resetBot() {
   brain = {
-    skill: rand(SKILL_MIN, SKILL_MAX), seen: new WeakMap(),
+    skill: rand(SKILL_MIN, SKILL_MAX), skillT: rand(SKILL_EVERY[0], SKILL_EVERY[1]), seen: new WeakMap(),
     goalKey: '', field: null, fieldT: 0,
     humanWeapon: null, want: 'bow', swapT: 0, swapTap: false,
     healHold: false, rollCd: 0, blockT: 0, blockSrc: null, daze: 0, recover: false,
@@ -73,7 +74,7 @@ function botNotice(key) {
 //          block: bisa ditangkis, walk: bisa dihindari dengan berjalan, ring, lead: waktu reaksi }
 let BOT_ARC = null; // serangan tebasan: [jangkauan, lebar busur]
 function botThreat(b) {
-  if (!BOT_ARC) BOT_ARC = new Map([[DEF.gSlash, [40, 2.0]], [DEF.gHeavy, [46, 2.2]], [DEF.bSweep, [60, 2.8]], [DEF.wSweep, [78, 2.9]], [DEF.wSweep2, [78, 2.9]], [DEF.xSwing, [84, 2.6]], [DEF.xSwing2, [84, 2.6]]]);
+  if (!BOT_ARC) BOT_ARC = new Map([[DEF.gSlash, [40, 2.0]], [DEF.gHeavy, [46, 2.2]], [DEF.bSweep, [60, 2.8]], [DEF.wSweep, [78, 2.9]], [DEF.wSweep2, [78, 2.9]], [DEF.xSwing, [84, 2.6]], [DEF.xSwing2, [84, 2.6]], [DEF.k1, [64, 2.2]], [DEF.k2, [64, 2.2]]]);
   let best = null;
   const add = (key, t, fx, fy, src, o = {}) => {
     if (best && best.t <= t) return;
@@ -97,6 +98,8 @@ function botThreat(b) {
       if (Math.hypot(b.x - a.tx, b.y - a.ty) < 88 + pad) add(a, a.ph === 'w' ? left + .6 : .6 - a.t, b.x - a.tx, b.y - a.ty, { x: a.tx, y: a.ty });
     } else if (d === DEF.wCharge) line(420, e.r, 430);
     else if (d === DEF.xHook) line(290, 12, 1500);
+    else if (d === DEF.kDash) line(300, e.r, 620);
+    else if (d === DEF.k3) line(150, 10, 900);
     else if (d === DEF.xSpin) {
       if (Math.hypot(ox, oy) < 96 + pad) add(a, left, ox, oy, e, { block: a.ph === 'w' }); // saat berputar: menjauh, jangan bertahan
     } else if (d === DEF.bSlam || d === DEF.wOverhead || d === DEF.qNova || d === DEF.xSlam) {
@@ -147,9 +150,10 @@ function botTarget(b, h, melee) {
 
 // ---------- otak per frame (dipanggil dari update, sebelum updatePlayer) ----------
 function botUpdate(b, h, dt) {
+  for (const k of ['fieldT', 'rollCd', 'strafeT', 'shotCd', 'swapT', 'blockT', 'daze', 'skillT']) brain[k] -= dt;
+  if (brain.skillT <= 0) { brain.skill = rand(SKILL_MIN, SKILL_MAX); brain.skillT = rand(SKILL_EVERY[0], SKILL_EVERY[1]); }
   const inp = IN[b.i], s = brain.skill;
   inp.h[0] = inp.h[1] = inp.h[2] = 0; inp.mx = 0; inp.my = 0;
-  for (const k of ['fieldT', 'rollCd', 'strafeT', 'shotCd', 'swapT', 'blockT', 'daze']) brain[k] -= dt;
   if (b.state === 'shoot_r' && brain.prevState !== 'shoot_r') brain.shotCd = rand(.05, .8) * (1.2 - s); // jeda antar tembakan
   brain.prevState = b.state;
   if (!b.alive) { brain.healHold = false; brain.blockT = 0; return; }

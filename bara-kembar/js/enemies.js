@@ -9,6 +9,7 @@ const ETYPE = {
   warden: { hp: 680, r: 26, speed: 72, poise: 160, aggro: 999, col: '#c9b48a', sc: 2.5, lw: 4.2, boss: true },
   queen: { hp: 820, r: 20, speed: 64, poise: 130, aggro: 999, col: '#ff9a5c', sc: 2.0, lw: 3.4, boss: true },
   exec: { hp: 920, r: 24, speed: 66, poise: 170, aggro: 999, col: '#9fb0c4', sc: 2.3, lw: 4.0, boss: true },
+  knight: { hp: 800, r: 15, speed: 92, poise: 115, aggro: 999, col: '#d8c8a0', sc: 1.75, lw: 3.2, boss: true },
 };
 function makeEnemy(type, x, y) {
   const d = ETYPE[type];
@@ -213,6 +214,62 @@ const DEF = {
       Snd.bossTele();
     },
     tele: (e, a, p) => teleLine(e.x, e.y, e.face, 390, 30, p) },
+
+  // ---- Ksatria Gerhana (level 4): duelis cepat, cocok dilawan dengan tangkisan ----
+  k1: { wind: .45, act: .12, rec: .35, track: 6, move: 140, anim: [.6, -1.9, 1.6], cd: [.4, .8],
+    hitFn: (e, a) => meleeArc(e, a, 64, 2.2, 20, { parryable: true, knock: 180 }), tele: (e, a, p) => teleArc(e.x, e.y, e.face, 64 + e.r, 2.2, p),
+    next: e => e.tgt && e.tgt.alive && dist(e, e.tgt) < 150 ? DEF.k2 : null },
+  k2: { wind: .26, act: .12, rec: .4, track: 6, move: 140, anim: [1.6, 2.0, -1.9], cd: [.4, .8],
+    hitFn: (e, a) => meleeArc(e, a, 64, 2.2, 20, { parryable: true, knock: 180 }), tele: (e, a, p) => teleArc(e.x, e.y, e.face, 64 + e.r, 2.2, p),
+    next: e => Math.random() < (e.p2 ? .85 : .55) ? DEF.k3 : null },
+  k3: { wind: .42, act: .14, rec: .85, track: 5, move: 260, anim: [-.6, 0, 0], cd: [.5, .9], // tusukan menerjang
+    hitFn: (e, a) => meleeArc(e, a, 96, .9, 30, { parryable: true, knock: 260, stagger: .5 }), tele: (e, a, p) => teleLine(e.x, e.y, e.face, 96 + e.r + 36, 18, p) },
+  // terjangan kilat: melesat lurus, jejaknya meledak jadi pilar bara
+  kDash: { wind: .7, act: .42, rec: .7, track: 5, anim: [-.4, 0, 0], cd: [.5, .9],
+    windUpd: (e, a) => { if (a.t > .5 / e.spdMul) a.lock = true; },
+    onAct: (e, a) => { a.sx = e.x; a.sy = e.y; Snd.roll(); Snd.swing(); },
+    actUpd: (e, a, dt) => {
+      const hit = moveCircle(e, Math.cos(e.face) * 620 * dt, Math.sin(e.face) * 620 * dt);
+      if (Math.random() < .7) puff(e.x, e.y, 'rgba(180,160,220,', 1.4);
+      for (const p of players) if (p.alive && !a.hit.has(p) && dist(e, p) < e.r + p.r + 8) {
+        a.hit.add(p); if (hurtPlayer(p, 24, e, { parryable: true, knock: 280, stagger: .45 }) === 'parry') { enemyParried(e); return; }
+      }
+      if (hit) a.t = Math.max(a.t, .42);
+    },
+    onRec: (e, a) => {
+      const len = Math.hypot(e.x - a.sx, e.y - a.sy), n = Math.floor(len / 46);
+      for (let k = 1; k <= n; k++) { const t = k / (n + 1); L.hazards.push({ kind: 'pillar', x: lerp(a.sx, e.x, t), y: lerp(a.sy, e.y, t), r: 30, t: 0, delay: .45 + k * .05 }); }
+    },
+    tele: (e, a, p) => teleLine(e.x, e.y, e.face, 270, e.r * 2 + 6, p) },
+  // gelombang pedang: bulan sabit ungu yang bisa dipantulkan
+  kWave: { wind: .6, act: .05, rec: .6, track: 5, anim: [.6, -2.4, 1.8], cd: [.5, .9],
+    onAct: e => { const n = e.p2 ? 5 : 3; for (let k = 0; k < n; k++) spawnProj('e', fx(e, 18), fy(e, 18), e.face + (k - (n - 1) / 2) * .22, 300, 16, { kind: 'orb', col: '#c9a8ff', parryable: true, life: 1.6, r: 9, src: e }); Snd.swing(); Snd.fire(); },
+    tele: (e, a, p) => { const n = e.p2 ? 5 : 3; for (let k = 0; k < n; k++) teleLine(e.x, e.y, e.face + (k - (n - 1) / 2) * .22, 200, 3, p); } },
+  // langkah bayangan: menghilang lalu muncul di belakang sasaran, langsung menebas
+  kBlink: { wind: .4, act: .05, rec: .08, anim: [.6, .6, .6], cd: [.2, .3],
+    onStart: e => { e.inv = true; Snd.fire(); },
+    windUpd: (e, a) => { e.alpha = 1 - a.t / .4; },
+    onAct: (e, a) => {
+      const t = a.tgt; if (!t) return;
+      for (const off of [Math.PI, Math.PI * .6, -Math.PI * .6, 0]) {
+        const g = t.face + off, x = t.x + Math.cos(g) * 64, y = t.y + Math.sin(g) * 64;
+        if (!tileSolidW(x, y) && inArena({ x, y })) { e.x = x; e.y = y; break; }
+      }
+      e.face = angTo(e, t);
+      for (let k = 0; k < 14; k++) part(e.x, e.y, rand(-60, 60), rand(-60, 60), rand(.3, .7), '#c9a8ff', 2.5, true);
+    },
+    onRec: e => { e.inv = false; e.alpha = 1; },
+    next: () => DEF.k1 },
+  // gerhana (fase 2): arena makin gelap, cincin + bulan sabit ke segala arah
+  kEclipse: { wind: 1.1, act: .2, rec: .6, anim: [-2.6, -2.6, -2.6], cd: [.4, .6],
+    onStart: e => { e.inv = true; Snd.roar(); shake(10); },
+    onAct: e => {
+      e.inv = false; L.eclipse = Math.min(.12, (L.eclipse || 0) + .06);
+      L.hazards.push({ kind: 'ring', x: e.x, y: e.y, rad: 30, speed: 240, max: 380, w: 16, hit: new Set(), dmg: 14 });
+      for (let k = 0; k < 10; k++) spawnProj('e', e.x, e.y, k / 10 * TAU + rand(-.1, .1), 150, 14, { kind: 'orb', col: '#c9a8ff', parryable: true, life: 3, r: 8, src: e });
+      Snd.pillar();
+    },
+    tele: (e, a, p) => teleCircle(e.x, e.y, 70, p * .5) },
 };
 function startAtk(e, def, tgt) {
   e.state = 'atk'; e.atk = { def, ph: 'w', t: 0, tgt: tgt || e.tgt, hit: new Set() };
@@ -332,6 +389,21 @@ const AI = {
       startAtk(e, e.p2 && r < .5 ? DEF.xQuake : DEF.xHook, t); return;
     }
     if (d > 85) { moveCircle(e, Math.cos(e.face) * e.speed * e.spdMul * dt, Math.sin(e.face) * e.speed * e.spdMul * dt); e.walk += e.speed * dt * .08; }
+  },
+  knight(e, t, dt) {
+    if (!e.p2 && e.hp < e.maxHp * .5) { e.p2 = true; e.spdMul = 1.15; startAtk(e, DEF.kEclipse, t); banner('', 'Gerhana menelan cahaya...', 2.2, '#c9a8ff', false); return; }
+    const d = dist(e, t), a = angTo(e, t);
+    e.face = turnTo(e.face, a, 6 * dt);
+    if (e.cd <= 0) {
+      const r = Math.random();
+      if (d < 95) { startAtk(e, r < .65 ? DEF.k1 : r < .85 ? DEF.kBlink : DEF.kDash, t); return; }
+      if (d < 320) { startAtk(e, r < .38 ? DEF.kDash : r < .68 ? DEF.kWave : r < .9 || !e.p2 ? DEF.kBlink : DEF.kEclipse, t); return; }
+      startAtk(e, r < .5 ? DEF.kBlink : DEF.kDash, t); return;
+    }
+    const mvA = d > 150 ? a : a + e.strafe * Math.PI / 2; // dekati, lalu memutari sasaran
+    if (moveCircle(e, Math.cos(mvA) * e.speed * e.spdMul * dt, Math.sin(mvA) * e.speed * e.spdMul * dt)) e.strafe *= -1;
+    if (Math.random() < .008) e.strafe *= -1;
+    e.walk += e.speed * dt * .1;
   }
 };
 function updateEnemy(e, dt) {

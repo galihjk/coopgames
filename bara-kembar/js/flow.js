@@ -3,7 +3,7 @@
 //  ALUR LEVEL: api unggun, kabut, bos, portal
 // =====================================================================
 function bossDefeated(e) {
-  L.bossState = 'dead'; L.gateState = 'open'; G.slowT = 1.4; Snd.music(false); Snd.victory();
+  L.bossState = 'dead'; L.gateState = 'open'; L.eclipse = 0; G.slowT = 1.4; Snd.music(false); Snd.victory();
   banner('MUSUH BESAR DITUMBANGKAN', BOSS_NAMES[e.type], 4.5, '#ffd27a');
   for (const o of L.enemies) if (o.summon && !o.dead) killEnemy(o);
   L.projectiles = L.projectiles.filter(p => p.owner === 'p'); L.hazards = [];
@@ -11,7 +11,7 @@ function bossDefeated(e) {
   setTimeout(() => { if (L && L.bossState === 'dead') { L.portal = { x: L.bossSpawn.x, y: L.bossSpawn.y, t: 0 }; Snd.portal(); } }, 2200);
 }
 function respawnAll() {
-  L.decals = []; L.particles = [];
+  L.decals = []; L.particles = []; L.eclipse = 0;
   if (L.bossState !== 'dead') { L.bossState = 'dormant'; L.gateState = 'fog'; }
   populate();
   placePlayers(L.checkpoint, true);
