@@ -314,3 +314,135 @@ BEAST_DRAW.ent = e => {
   if (!e.dead) { ctx.fillStyle = '#ff8a3a'; ctx.globalAlpha *= .6 + Math.sin(G.t * 4 + e.y) * .3; ctx.beginPath(); ctx.arc(4, -2, 1.4, 0, TAU); ctx.arc(4, 2, 1.4, 0, TAU); ctx.fill(); } // mata bara
   ctx.restore();
 };
+
+// =====================================================================
+//  LEVEL 9 — SARANG WYVERN:  y = Wyvern Muda (2 ekor)   o = Telur Bara
+//  Bos: Induk Wyvern (darat + terbang menyambar)
+// =====================================================================
+Object.assign(ETYPE, {
+  wyvernling: { hp: 40, r: 11, speed: 110, poise: 14, aggro: 300, col: '#d86a3a', sc: .62, lw: 2 },
+  egg: { hp: 30, r: 10, speed: 0, poise: 999, aggro: 210, col: '#c86a3a', sc: 1, lw: 2, anchored: true },
+  wyvern: { hp: 1850, r: 24, speed: 95, poise: 220, aggro: 999, col: '#e07a40', sc: 2.4, lw: 3, boss: true },
+});
+SPAWN_CHARS.y = 'wyvernling'; SPAWN_CHARS.o = 'egg'; GROUP_SIZE.wyvernling = 2;
+const HATCH_T = 6; // detik pemain berada dekat telur sebelum menetas
+
+// panggil makhluk (anak wyvern / telur) di petak arena yang jauh dari pemain
+function summonAt(type, n, o = {}) {
+  for (let k = 0; k < n; k++) {
+    const t = L.arenaTiles.filter(t => players.every(p => dist(t, p) > 150) && !tileSolidW(t.x, t.y))[(Math.random() * 60) | 0] || L.arenaTiles[0];
+    const m = makeEnemy(type, t.x, t.y); Object.assign(m, { summon: true, state: 'chase', cd: rand(.8, 1.6) }, o); L.enemies.push(m);
+    for (let j = 0; j < 12; j++) part(t.x, t.y, rand(-40, 40), rand(-70, -10), rand(.4, .8), '#ff9a5c', 2.2, true);
+  }
+}
+
+Object.assign(DEF, {
+  ySpit: { wind: .6, act: .05, rec: .5, track: 4, anim: [0, 0, 0], cd: [1.4, 2.2],
+    onAct: e => { spawnProj('e', fx(e, 12), fy(e, 12), e.face, 240, 12, { kind: 'orb', parryable: true, life: 1.8, r: 7, src: e }); Snd.fire(); },
+    tele: (e, a, p) => teleLine(e.x, e.y, e.face, 180, 3, p) },
+  // ---- Induk Wyvern ----
+  wvBite: { wind: .55, act: .14, rec: .55, track: 5, move: 120, anim: [0, 0, 0], cd: [.5, .9],
+    hitFn: (e, a) => meleeArc(e, a, 70, 1.6, 33, { parryable: true, knock: 240 }), tele: (e, a, p) => teleArc(e.x, e.y, e.face, 70 + e.r, 1.6, p) },
+  // sabetan ekor ke BELAKANG (tidak bisa ditangkis): jangan berdiri di belakang wyvern
+  wvTail: { wind: .6, act: .2, rec: .6, anim: [0, 0, 0], cd: [.5, .9],
+    hitFn: (e, a) => { const f = e.face; e.face = f + Math.PI; meleeArc(e, a, 84, 2.4, 22, { unblockable: true, knock: 320, stagger: .5 }); e.face = f; return false; },
+    tele: (e, a, p) => teleArc(e.x, e.y, e.face + Math.PI, 84 + e.r, 2.4, p) },
+  wvSpit: { wind: .7, act: .05, rec: .6, track: 4, anim: [0, 0, 0], cd: [.6, 1],
+    onAct: e => { const n = e.p2 ? 5 : 3; for (let k = 0; k < n; k++) spawnProj('e', fx(e, 30), fy(e, 30), e.face + (k - (n - 1) / 2) * .22, 230, 21, { kind: 'orb', parryable: true, life: 2, r: 10, src: e }); Snd.fire(); },
+    tele: (e, a, p) => { const n = e.p2 ? 5 : 3; for (let k = 0; k < n; k++) teleLine(e.x, e.y, e.face + (k - (n - 1) / 2) * .22, 200, 3, p); } },
+  // terbang menyambar: melintas di atas sasaran sambil menjatuhkan bara, lalu mendarat menghantam
+  wvFlight: { wind: .8, act: 1.6, rec: .8, anim: [0, 0, 0], cd: [.6, 1],
+    onStart: (e, a) => {
+      const g = angTo(e, a.tgt); let len = dist(e, a.tgt) + 170;
+      while (len > 60 && !inArena({ x: e.x + Math.cos(g) * len, y: e.y + Math.sin(g) * len })) len -= 20;
+      Object.assign(a, { sx: e.x, sy: e.y, ex: e.x + Math.cos(g) * len, ey: e.y + Math.sin(g) * len, g, len, drop: 0 });
+      e.face = g; Snd.roar(); shake(5);
+    },
+    windUpd: e => { e.flapFast = true; },
+    onAct: e => { e.air = true; Snd.swingHeavy(); },
+    actUpd: (e, a, dt) => {
+      const k = clamp(a.t / 1.6, 0, 1); e.x = lerp(a.sx, a.ex, ease(k)); e.y = lerp(a.sy, a.ey, ease(k)); e.z = 20 + Math.sin(k * Math.PI) * 55;
+      a.drop -= dt; if (a.drop <= 0 && k > .08 && k < .92) { a.drop = .1; L.hazards.push({ kind: 'pillar', x: e.x, y: e.y, r: 30, t: 0, delay: .45 }); }
+    },
+    onRec: e => { e.air = false; e.z = 0; e.flapFast = false; resolveCircle(e); aoe(e.x, e.y, 70, 24, { knock: 300, guard: 2, stagger: .5 }); slamFx(e.x, e.y, 70, '#ff9a5c'); },
+    tele: (e, a, p) => { teleLine(a.sx, a.sy, a.g, a.len, e.r * 2, p); teleCircle(a.ex, a.ey, 70, p); },
+    teleAct: (e, a) => teleCircle(a.ex, a.ey, 70, 1) },
+  wvBrood: { wind: 1.1, act: .1, rec: .6, anim: [0, 0, 0], cd: [.5, .8],
+    onStart: e => { Snd.roar(); shake(8); e.flapFast = true; },
+    onAct: e => { e.flapFast = false; summonAt('wyvernling', 2); summonAt('egg', 2, { hatchT: 2 }); },
+    tele: (e, a, p) => teleCircle(e.x, e.y, 60, p * .4) },
+});
+
+Object.assign(AI, {
+  wyvernling(e, t, dt) { // melayang menjaga jarak, meludah api, sesekali menukik
+    const d = dist(e, t), a = angTo(e, t), see = los(e, t);
+    if (!see) { pathMove(e, t, e.speed, dt); return; }
+    if (e.cd <= 0) { startAtk(e, d < 140 && Math.random() < .4 ? DEF.batSwoop : DEF.ySpit, t); return; }
+    const mvA = d < 150 ? a + Math.PI : d > 230 ? a : a + e.strafe * Math.PI / 2;
+    if (moveCircle(e, Math.cos(mvA) * e.speed * dt, Math.sin(mvA) * e.speed * dt)) e.strafe *= -1;
+    if (Math.random() < .006) e.strafe *= -1;
+    e.face = turnTo(e.face, a, 6 * dt);
+  },
+  egg(e, t, dt) { // menetas kalau pemain terlalu lama di dekatnya
+    e.hatchT = (e.hatchT || 0) + dt;
+    if (e.hatchT >= HATCH_T) {
+      e.dead = true; e.deadT = 0; e.hatched = true; // menetas: bukan "dibunuh"
+      if (e.spawnIdx != null) L.killed.add(e.spawnIdx);
+      const w = makeEnemy('wyvernling', e.x, e.y); Object.assign(w, { state: 'chase', cd: 1, summon: e.summon }); L.enemies.push(w);
+      for (let k = 0; k < 16; k++) part(e.x, e.y, rand(-60, 60), rand(-80, -10), rand(.4, .8), k % 2 ? '#ffb347' : '#e8dcc0', 2.2, true);
+      Snd.fire();
+    }
+  },
+  wyvern(e, t, dt) {
+    if (!e.p2 && e.hp < e.maxHp * .5) { e.p2 = true; e.spdMul = 1.15; startAtk(e, DEF.wvBrood, t); banner('', 'Induk Wyvern memanggil anak-anaknya!', 2.2, '#ff9a5c', false); return; }
+    const d = dist(e, t), a = angTo(e, t), behind = Math.abs(angDiff(e.face, a)) > 2.1;
+    if (e.cd <= 0) {
+      const r = Math.random();
+      if (d < 110) { startAtk(e, r < (e.p2 ? .26 : .18) ? DEF.wvFlight : behind ? DEF.wvTail : r < .75 ? DEF.wvBite : DEF.wvTail, t); return; } // kadang lepas landas walau didesak
+      if (e.p2 && r < .1 && L.enemies.filter(o => o.summon && !o.dead).length < 3) { startAtk(e, DEF.wvBrood, t); return; }
+      startAtk(e, r < (e.p2 ? .45 : .32) ? DEF.wvFlight : DEF.wvSpit, t); return;
+    }
+    e.face = turnTo(e.face, a, 3.5 * dt);
+    if (d > 90) { moveCircle(e, Math.cos(e.face) * e.speed * e.spdMul * dt, Math.sin(e.face) * e.speed * e.spdMul * dt); e.walk += e.speed * dt * .08; }
+  },
+});
+
+// ---------- gambar: wyvern (induk & muda) dan telur ----------
+function drawWyvern(e) {
+  const k = e.dead ? clamp(e.deadT / 1.2, 0, 1) : 0, dormant = e.boss && L.bossState === 'dormant';
+  const col = e.flash > 0 ? '#fff' : dormant ? '#6a645c' : e.dead ? '#3a2a24' : e.col;
+  const z = e.type === 'wyvernling' ? 14 + Math.sin(G.t * 4 + e.x) * 3 : (e.z || 0);
+  const flap = Math.sin(G.t * (e.air || e.flapFast || e.type === 'wyvernling' ? 13 : 3) + e.x) * (dormant ? .2 : 1);
+  ctx.save(); ctx.translate(e.x, e.y - z); ctx.rotate(e.face); ctx.scale(e.sc, e.sc); ctx.globalAlpha *= 1 - k * .8; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = col; ctx.lineWidth = 1.8;
+  for (const s of [-1, 1]) { // sayap berselaput
+    const tip = 19 + flap * 5;
+    ctx.fillStyle = dormant ? 'rgba(40,36,32,.8)' : 'rgba(60,24,16,.75)';
+    ctx.beginPath(); ctx.moveTo(3, s * 3); ctx.lineTo(-3, s * tip); ctx.quadraticCurveTo(-7, s * (tip * .6), -12, s * 6); ctx.quadraticCurveTo(-6, s * 6, -4, s * 3); ctx.closePath(); ctx.fill(); ctx.stroke();
+    line(3, s * 3, -3, s * tip); line(-1, s * 5, -8, s * tip * .7); // tulang sayap
+  }
+  const sw = Math.sin(G.t * 3 + e.y) * 3;
+  ctx.beginPath(); ctx.moveTo(-8, 0); ctx.quadraticCurveTo(-16, sw, -24, sw * 1.6); ctx.stroke(); // ekor
+  ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-24, sw * 1.6); ctx.lineTo(-29, sw * 1.6 - 3); ctx.lineTo(-29, sw * 1.6 + 3); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#1e1410'; ctx.beginPath(); ctx.ellipse(-1, 0, 9, 5, 0, 0, TAU); ctx.fill(); ctx.stroke();   // badan
+  line(7, 0, 11, 0);                                                                                            // leher
+  ctx.beginPath(); ctx.ellipse(14, 0, 4.5, 3.2, 0, 0, TAU); ctx.fill(); ctx.stroke();                            // kepala
+  line(12, -2.5, 9, -5.5); line(12, 2.5, 9, 5.5);                                                               // tanduk
+  if (!e.dead && !dormant) { ctx.fillStyle = e.p2 ? '#fff1c0' : '#ffd27a'; ctx.beginPath(); ctx.arc(16, -1.4, .8, 0, TAU); ctx.arc(16, 1.4, .8, 0, TAU); ctx.fill(); }
+  ctx.restore();
+}
+BEAST_DRAW.wyvern = drawWyvern;
+BEAST_DRAW.wyvernling = drawWyvern;
+BEAST_DRAW.egg = e => {
+  const k = e.dead ? clamp(e.deadT / .5, 0, 1) : 0, h = clamp((e.hatchT || 0) / HATCH_T, 0, 1);
+  const wob = h > .6 ? Math.sin(G.t * 30) * (h - .6) * 4 : 0;
+  ctx.save(); ctx.translate(e.x + wob, e.y); ctx.globalAlpha *= 1 - k;
+  ctx.fillStyle = e.flash > 0 ? '#fff' : '#2a201c'; ctx.strokeStyle = e.col; ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.ellipse(0, -2, 8, 10.5, 0, 0, TAU); ctx.fill(); ctx.stroke();
+  if (h > 0) { // retakan bercahaya makin banyak menjelang menetas
+    ctx.strokeStyle = `rgba(255,${180 - h * 80},80,${.4 + h * .6})`; ctx.lineWidth = 1.2;
+    const n = 1 + Math.floor(h * 4);
+    for (let j = 0; j < n; j++) { const y0 = -9 + j * 4.5; ctx.beginPath(); ctx.moveTo(-6 + j, y0); ctx.lineTo(-1, y0 + 2); ctx.lineTo(2, y0 - 1); ctx.lineTo(6 - j, y0 + 1.5); ctx.stroke(); }
+  }
+  ctx.restore();
+};

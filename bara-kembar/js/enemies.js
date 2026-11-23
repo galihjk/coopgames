@@ -14,7 +14,7 @@ const ETYPE = {
   ember: { hp: 620, r: 16, speed: 84, poise: 110, aggro: 999, col: '#ff8a4a', sc: 1.8, lw: 3.2, boss: true }, // kembar: Sang Sulut (dekat)
   ash: { hp: 560, r: 16, speed: 62, poise: 100, aggro: 999, col: '#b8c4d0', sc: 1.8, lw: 3.0, boss: true },   // kembar: Sang Abu (jauh)
   lantern: { hp: 850, r: 22, speed: 50, poise: 220, aggro: 999, col: '#ffd27a', sc: 2.2, lw: 3.8, boss: true }, // Sang Penjaga Lentera
-  totem: { hp: 90, r: 14, speed: 0, poise: 999, aggro: 999, col: '#c89a5a', sc: 1, lw: 2 },                       // totem bara: sumber perisai
+  totem: { hp: 90, r: 14, speed: 0, poise: 999, aggro: 999, col: '#c89a5a', sc: 1, lw: 2, anchored: true },                       // totem bara: sumber perisai
   shade: { hp: 60, r: 11, speed: 100, poise: 22, aggro: 999, col: '#9a88ff', sc: 1.1, lw: 2.2 }, // bayangan panggilan Sang Pemadam
 };
 // musuh biasa makin tangguh tiap level: +6% HP & damage per level (bos tidak, karena sudah diatur sendiri)
@@ -64,7 +64,7 @@ function hurtEnemy(e, dmg, src, o = {}) {
   const a = angTo(src, e);
   if (crit) { Snd.crit(); hitStop(.16); shake(9); vib(60); sparks(e.x, e.y, 30, '#ff5b3a'); blood(e.x, e.y, a, 20, '#1a0f14'); }
   else { Snd.hit(); hitStop(o.melee ? .055 : .03); shake(o.melee ? 3 : 1.5); sparks(e.x - Math.cos(a) * e.r * .5, e.y - Math.sin(a) * e.r * .5, 8, '#ffe2b0'); blood(e.x, e.y, a, 5, '#1a0f14'); }
-  if (!e.boss && e.type !== 'totem') { const k = o.melee ? 120 : 60; e.kx += Math.cos(a) * k; e.ky += Math.sin(a) * k; }
+  if (!e.boss && !ETYPE[e.type].anchored) { const k = o.melee ? 120 : 60; e.kx += Math.cos(a) * k; e.ky += Math.sin(a) * k; }
   if (e.hp <= 0) { killEnemy(e); return; }
   if (e.poise <= 0) {
     e.poise = e.maxPoise;
