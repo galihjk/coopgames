@@ -111,7 +111,7 @@ function drawHUD(p, LW, LH) {
 // ---------- petunjuk tombol: label + garis panah langsung ke tiap tombol ----------
 // Label disusun bertingkat (tombol paling kiri paling bawah) supaya garisnya tidak menembus label lain.
 const CALLOUTS = {
-  sword: [['Tebas', 'tekan lagi saat pedang berkilau = kombo'], ['Tahan: Tameng', 'angkat tepat sebelum kena = TANGKIS']],
+  sword: [['Tebas', 'tekan lagi saat pedang berkilau = kombo'], ['Tahan: Tameng', 'hadapkan ke musuh, tepat sebelum kena = TANGKIS']],
   bow: [['Tahan & lepas: Panah', 'tahan lebih lama = tembakan kuat'], ['Guling', 'kebal sesaat']],
   swap: ['Ketuk: Ganti senjata', 'tahan: minum ramuan'],
 };
@@ -143,7 +143,7 @@ function drawCallouts(p, LW, base, alpha, withJoy) {
   });
   if (withJoy) { // joystick hanya dijelaskan di awal level
     const j = screenToFrame(p.i, c.joy), y = base - 62 * u;
-    label(10 * u, y, 'left', ['Geser: bergerak', 'sentuh & geser di sisi kiri']);
+    label(10 * u, y, 'left', ['Geser: bergerak & menghadap', 'sambil tahan tombol: geser pelan = membidik']);
     arrow(j.x, y + 17 * u, j.x, j.y - c.joy.r - 5 * u);
   }
   ctx.restore();
@@ -276,7 +276,7 @@ function uiTap(q) {
   }
 }
 function togglePause() {
-  if (G.mode === 'play') { G.mode = 'pause'; for (const n of IN) { n.tb = [0, 0, 0]; n.joy = null; } ptrs.clear(); }
+  if (G.mode === 'play') { G.mode = 'pause'; for (const n of IN) { n.tb = [0, 0, 0]; n.joy = null; n.buf = [-1, -1, -1]; } ptrs.clear(); }
   else if (G.mode === 'pause') G.mode = 'play';
 }
 function drawTitle() {

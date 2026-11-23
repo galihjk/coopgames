@@ -2,8 +2,14 @@
 // =====================================================================
 //  INPUT
 // =====================================================================
-const IN = [0, 1].map(() => ({ mx: 0, my: 0, tb: [0, 0, 0], kb: [0, 0, 0], h: [0, 0, 0], pv: [0, 0, 0], joy: null, kx: { u: 0, d: 0, l: 0, r: 0 } }));
-const pressed = (i, k) => IN[i].h[k] && !IN[i].pv[k];
+const IN = [0, 1].map(() => ({ mx: 0, my: 0, tb: [0, 0, 0], kb: [0, 0, 0], h: [0, 0, 0], pv: [0, 0, 0], buf: [-1, -1, -1], joy: null, kx: { u: 0, d: 0, l: 0, r: 0 } }));
+// Input buffer: tombol yang ditekan sedikit sebelum karakter siap (mis. di akhir guling) tetap diingat
+// selama BUFFER_T detik lalu dijalankan begitu bisa. pressed() memakai (mengonsumsi) tekanan itu.
+const BUFFER_T = .25;
+function bufferInput(i) { const n = IN[i]; for (let k = 0; k < 3; k++) if (n.h[k] && !n.pv[k]) n.buf[k] = G.t; }
+function pressed(i, k) { const n = IN[i]; if (n.buf[k] >= 0 && G.t - n.buf[k] <= BUFFER_T) { n.buf[k] = -1; return true; } return false; }
+// ketukan saat ini saja (tanpa buffer) — dipakai untuk menyambung kombo, yang memang menguji timing
+function tapped(i, k) { const n = IN[i]; if (n.h[k] && !n.pv[k]) { n.buf[k] = -1; return true; } return false; }
 const released = (i, k) => !IN[i].h[k] && IN[i].pv[k];
 const ctrls = [{}, {}];
 function layoutControls() {

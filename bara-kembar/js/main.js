@@ -41,7 +41,7 @@ function startGame(idx) {
   Snd.init(); tryFullscreen();
   players[0].weapon = 'sword'; players[1].weapon = 'bow';
   resetBot();
-  for (const n of IN) { n.tb = [0, 0, 0]; n.joy = null; n.pv = [1, 1, 1]; }
+  for (const n of IN) { n.tb = [0, 0, 0]; n.joy = null; n.pv = [1, 1, 1]; n.buf = [-1, -1, -1]; }
   ptrs.clear();
   G.banners = []; G.fx = []; G.slowT = 0;
   loadLevel(idx); G.mode = 'play'; G.fade = 1; G.fadeDir = -1;

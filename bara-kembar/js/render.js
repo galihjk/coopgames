@@ -26,19 +26,52 @@ function limb(x0, y0, x1, y1, side) {
   const mx = (x0 + x1) / 2 - 1.5, my = (y0 + y1) / 2 + bend;
   ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(mx, my, x1, y1); ctx.stroke();
 }
-// o: x,y,face,col,lw,sc,walk,stride,armL,armR,headFill,alpha,extra(fnLocal),curl
+// Guling = salto ke depan dilihat dari atas. Tubuh meringkuk jadi bola yang berputar pada sumbu
+// kiri-kanan (bukan sumbu tegak seperti gasing): kepala menunduk ke depan lalu masuk ke bawah,
+// keluar di belakang, dan naik lagi lewat punggung; kaki bergerak sebaliknya. Bagian yang sedang
+// di bawah tubuh digambar redup. k = 0..1 (progres guling), sumbu x lokal = arah guling.
+function drawRoll(o, k) {
+  const base = ctx.globalAlpha, phi = ease(k) * TAU, hop = 1 + Math.sin(Math.PI * k) * .12;
+  // jejak gerak: dua garis tipis di belakang bola
+  ctx.globalAlpha = base * .45 * Math.sin(Math.PI * k); ctx.lineWidth = 1.2;
+  for (const s of [-1, 1]) line(-9, s * 4.5, -16 - 6 * Math.sin(Math.PI * k), s * 3);
+  ctx.scale(hop, hop);
+  // titik tubuh diputar ke depan sebesar phi: (x, z) → x' = x·cos + z·sin, z' = −x·sin + z·cos (z>0 = di atas)
+  const rot = (x, z) => ({ x: x * Math.cos(phi) + z * Math.sin(phi), z: -x * Math.sin(phi) + z * Math.cos(phi) });
+  const head = rot(7, 0), knee = rot(-1, 6.5), feet = rot(-6.5, 2), spine = rot(0, 7.5);
+  const tuck = Math.min(1, Math.sin(Math.PI * k) * 3); // tungkai & punggung memudar masuk/keluar di awal & akhir guling
+  const limbs = behind => { // tungkai terlipat + tangan yang memeluk lutut
+    ctx.globalAlpha = base * tuck * (behind ? .25 : 1); ctx.strokeStyle = o.col; ctx.lineWidth = o.lw * .8;
+    for (const s of [-1, 1]) line(knee.x, s * 2.6, feet.x, s * 3.2);
+    ctx.fillStyle = o.col; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(knee.x, s * 2.6, 1.6, 0, TAU); ctx.fill(); }
+  };
+  const drawHead = behind => {
+    ctx.globalAlpha = base * (behind ? .3 : 1); ctx.fillStyle = o.headFill; ctx.strokeStyle = o.col; ctx.lineWidth = o.lw;
+    ctx.beginPath(); ctx.arc(head.x, 0, 4.6, 0, TAU); ctx.fill(); ctx.stroke();
+  };
+  if (feet.z < 0) limbs(true);
+  if (head.z < 0) drawHead(true);
+  // bola tubuh: sedikit memanjang ke arah guling saat kepala/kaki di samping
+  ctx.globalAlpha = base; ctx.fillStyle = 'rgba(18,14,22,.92)'; ctx.strokeStyle = o.col; ctx.lineWidth = o.lw;
+  ctx.beginPath(); ctx.ellipse(0, 0, 7.5 + Math.abs(Math.cos(phi)) * 1.5, 7, 0, 0, TAU); ctx.fill(); ctx.stroke();
+  // garis punggung bergeser dari depan ke belakang permukaan bola → kesan menggelinding
+  if (spine.z > 0) { // punggung: lengkung terang yang bergeser depan → belakang
+    const w = .8 + 3 * (1 - spine.z / 7.5);
+    ctx.globalAlpha = base * tuck * (.4 + .5 * spine.z / 7.5); ctx.strokeStyle = 'rgba(255,245,225,.85)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.ellipse(spine.x * .85, 0, w, 5.8, 0, -Math.PI / 2, Math.PI / 2, spine.x < 0); ctx.stroke();
+    ctx.strokeStyle = o.col;
+  }
+  if (feet.z >= 0) limbs(false);
+  if (head.z >= 0) drawHead(false);
+  ctx.globalAlpha = base;
+}
+// o: x,y,face,col,lw,sc,walk,stride,armL,armR,headFill,alpha,extra(fnLocal),roll
 function drawStick(o) {
   ctx.save(); ctx.translate(o.x, o.y - (o.z || 0));
   ctx.rotate(o.face); ctx.scale(o.sc, o.sc);
   ctx.globalAlpha *= o.alpha == null ? 1 : o.alpha;
   ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = o.col; ctx.lineWidth = o.lw;
-  if (o.curl != null) { // berguling
-    ctx.rotate(o.curl);
-    ctx.beginPath(); ctx.arc(0, 0, 8, 0, TAU); ctx.stroke();
-    line(-4, -4, 4, 4); line(-4, 4, 4, -4);
-    ctx.fillStyle = o.headFill; ctx.beginPath(); ctx.arc(3, 0, 4, 0, TAU); ctx.fill(); ctx.stroke();
-    ctx.restore(); return;
-  }
+  if (o.roll != null) { drawRoll(o, o.roll); ctx.restore(); return; }
   const sw = Math.sin(o.walk || 0) * (o.stride || 0);
   line(-1, -3.5, sw - 1, -4.5); line(-1, 3.5, -sw - 1, 4.5);
   line(-2, 0, 1, 0);
@@ -67,7 +100,7 @@ function drawPlayer(p) {
   // cincin pemain
   ctx.strokeStyle = `rgba(${p.glow},.55)`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, 16, 0, TAU); ctx.stroke();
   const col = p.flash > 0 ? '#ffffff' : p.col;
-  const o = { x: p.x, y: p.y, face: p.face, col, lw: 2.4, sc: 1.4, walk: p.walk, stride: 5 * Math.min(1, p.moving * 1.4), headFill: '#141018', alpha: p.iframe > 0 && p.state !== 'roll' && Math.floor(G.t * 20) % 2 ? .55 : 1 };
+  const o = { x: p.x, y: p.y, face: p.vface, col, lw: 2.4, sc: 1.4, walk: p.walk, stride: 5 * Math.min(1, p.moving * 1.4), headFill: '#141018', alpha: p.iframe > 0 && p.state !== 'roll' && Math.floor(G.t * 20) % 2 ? .55 : 1 };
   if (p.state === 'down') {
     ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.face + Math.PI / 2); ctx.strokeStyle = '#776'; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
     line(-10, 0, 8, 0); line(8, 0, 14, -5); line(8, 0, 14, 5); line(-4, 0, -8, -8); line(-4, 0, 2, 9);
@@ -79,7 +112,7 @@ function drawPlayer(p) {
     ctx.strokeStyle = `rgba(255,80,60,.8)`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, 29, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(p.downT / 25, 0, 1)); ctx.stroke();
     return;
   }
-  if (p.state === 'roll') { o.curl = p.st * 18; drawStick(o); return; }
+  if (p.state === 'roll') { o.roll = clamp(p.st / .48, 0, 1); drawStick(o); return; } // .48 = durasi guling (player.js)
   const sword = p.weapon === 'sword';
   let armL = [7, -8], armR = [6, 9];
   if (sword) {
@@ -442,7 +475,8 @@ function render() {
   }
   for (const pr of L.projectiles) if (pr.kind === 'orb') { ctx.fillStyle = pr.owner === 'p' ? 'rgba(160,255,255,.35)' : pr.col ? 'rgba(200,170,255,.35)' : 'rgba(255,150,60,.35)'; ctx.beginPath(); ctx.arc(pr.x, pr.y, pr.r * 2, 0, TAU); ctx.fill(); }
   // penanda pemain di atas gelap
-  for (const p of players) if (p.alive) { ctx.fillStyle = `rgba(${p.glow},.9)`; ctx.beginPath(); const a = p.face; ctx.moveTo(p.x + Math.cos(a) * 24, p.y + Math.sin(a) * 24); ctx.lineTo(p.x + Math.cos(a + .25) * 19, p.y + Math.sin(a + .25) * 19); ctx.lineTo(p.x + Math.cos(a - .25) * 19, p.y + Math.sin(a - .25) * 19); ctx.fill(); }
+  for (const p of players) if (p.alive && p.state === 'draw') drawAimLine(p);
+  for (const p of players) if (p.alive) { ctx.fillStyle = `rgba(${p.glow},.9)`; ctx.beginPath(); const a = p.vface; ctx.moveTo(p.x + Math.cos(a) * 24, p.y + Math.sin(a) * 24); ctx.lineTo(p.x + Math.cos(a + .25) * 19, p.y + Math.sin(a + .25) * 19); ctx.lineTo(p.x + Math.cos(a - .25) * 19, p.y + Math.sin(a - .25) * 19); ctx.fill(); }
 
   baseT();
   drawVignette();
@@ -452,6 +486,26 @@ function render() {
   if (G.mode === 'over') drawOver();
   if (G.mode === 'pause') drawPause();
   drawFade();
+}
+// garis bidik saat menarik busur: ke target yang akan dikunci bantuan bidik, atau lurus ke depan.
+// Makin kuat tarikan makin tegas; tarikan penuh = garis utuh terang.
+function drawAimLine(p) {
+  const ang = aimAssist(p, p.face, .45, 460), locked = ang !== p.face;
+  const ch = clamp(p.drawT / .9, 0, 1), full = p.drawT >= .9;
+  let len = locked ? Math.min(460, (() => { let best = 460; for (const e of targetables()) { const d = dist(p, e); if (Math.abs(angDiff(ang, angTo(p, e))) < .02 && d < best) best = d; } return best; })()) : 200;
+  // berhenti di dinding
+  for (let d = 16; d < len; d += 10) if (tileSolidW(p.x + Math.cos(ang) * d, p.y + Math.sin(ang) * d)) { len = d; break; }
+  const x1 = p.x + Math.cos(ang) * len, y1 = p.y + Math.sin(ang) * len;
+  ctx.save(); ctx.lineCap = 'round';
+  ctx.strokeStyle = full ? 'rgba(255,243,176,.85)' : `rgba(${p.glow},${.25 + .45 * ch})`; ctx.lineWidth = full ? 2 : 1.4;
+  if (!full) { ctx.setLineDash([6, 6]); ctx.lineDashOffset = -G.t * 40; }
+  line(p.x + Math.cos(ang) * 18, p.y + Math.sin(ang) * 18, x1, y1); ctx.setLineDash([]);
+  if (locked) { // penanda target terkunci
+    ctx.strokeStyle = full ? '#fff3b0' : `rgba(${p.glow},.8)`; ctx.lineWidth = 1.6;
+    const r = 10 + Math.sin(G.t * 10) * 1.5;
+    for (let k = 0; k < 4; k++) { const a0 = k * Math.PI / 2 + G.t * 2; ctx.beginPath(); ctx.arc(x1, y1, r, a0, a0 + .9); ctx.stroke(); }
+  }
+  ctx.restore();
 }
 function drawLighting() {
   const lw = lightCv.width, lh = lightCv.height, s = .5;

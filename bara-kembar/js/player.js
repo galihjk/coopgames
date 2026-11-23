@@ -9,6 +9,10 @@ const COMBO = [
   { wind: .32, act: .13, rec: .70, dmg: 38, cost: 28, range: 58, arc: 2.8, lunge: 170, sw: [-1.6, 1.6], heavy: true },
 ];
 const CHAIN_WIN = .24, PARRY_WIN = .2, HEAL_AMT = 45, MAX_FLASK = 3;
+// Arah hadap langsung mengikuti joystick (tanpa waktu berputar), kecuali saat mengayun pedang,
+// berguling, terhuyung, atau tumbang. Saat menahan tameng/busur/ramuan joystick punya dua zona:
+// dorongan ringan (< AIM_ONLY) hanya membidik di tempat, dorongan penuh = melangkah pelan (HOLD_SPD).
+const AIM_ONLY = .55, HOLD_SPD = .25, VTURN = 28; // VTURN: kecepatan putar gambar badan (rad/s), hanya visual
 
 class Player {
   constructor(i) {
@@ -19,7 +23,7 @@ class Player {
   spawn(x, y) {
     Object.assign(this, {
       x, y, kx: 0, ky: 0, hp: this.maxHp, hpLag: this.maxHp, stam: this.maxStam, stamCd: 0, flasks: MAX_FLASK,
-      state: 'free', st: 0, face: this.i ? Math.PI : 0, combo: 0, chainLock: false, hitSet: null, blockT: 0, drawT: 0,
+      state: 'free', st: 0, face: this.i ? Math.PI : 0, vface: this.i ? Math.PI : 0, combo: 0, chainLock: false, hitSet: null, blockT: 0, drawT: 0,
       relPending: false, iframe: 1, flash: 0, down: false, dead: false, downT: 0, revT: 0, b3T: -1, healDone: false,
       rollA: 0, walk: 0, moving: 0, stagDur: 0, msg: null, swapHint: 0, parryFx: 0
     });
@@ -90,7 +94,7 @@ function startAttack(p, c) {
 function startRoll(p, mx, my, m) {
   if (p.stam <= 0) { Snd.fail(); msg(p, 'Stamina habis', .8); return; }
   p.stam = Math.max(0, p.stam - 22); p.stamCd = .6;
-  p.rollA = m > .3 ? Math.atan2(my, mx) : p.face; p.face = p.rollA;
+  p.rollA = m > .3 ? Math.atan2(my, mx) : p.face; p.face = p.vface = p.rollA;
   p.state = 'roll'; p.st = 0; Snd.roll();
 }
 function fireArrow(p) {
@@ -113,6 +117,7 @@ function updatePlayer(p, dt) {
     moveCircle(p, p.kx * dt, p.ky * dt); const f = Math.pow(.0015, dt); p.kx *= f; p.ky *= f;
     if (Math.hypot(p.kx, p.ky) < 6) p.kx = p.ky = 0;
   }
+  p.vface = turnTo(p.vface == null ? p.face : p.vface, p.face, VTURN * dt);
   if (p.state === 'down') return;
   // stamina
   if (p.stamCd > 0) p.stamCd -= dt;
@@ -123,16 +128,25 @@ function updatePlayer(p, dt) {
   const mag = Math.hypot(inp.mx, inp.my), m = mag > .2 ? Math.min(1, mag) : 0;
   const mAng = Math.atan2(inp.my, inp.mx);
   p.st += dt; p.moving = 0;
-  const walk = (spd, turn) => {
+  const walk = spd => { // jalan biasa: arah langsung mengikuti joystick
     if (m > 0) {
-      p.face = turnTo(p.face, mAng, turn * dt);
+      p.face = mAng;
       movePlayer(p, Math.cos(mAng) * spd * m * dt, Math.sin(mAng) * spd * m * dt);
       p.walk += spd * m * dt * .11; p.moving = m;
     }
   };
+  const aimWalk = spd => { // sambil menahan tombol: dorongan ringan = membidik saja, dorongan penuh = melangkah pelan
+    if (m <= 0) return;
+    p.face = mAng;
+    if (mag < AIM_ONLY) return;
+    const k = (Math.min(1, mag) - AIM_ONLY) / (1 - AIM_ONLY);
+    movePlayer(p, Math.cos(mAng) * spd * k * dt, Math.sin(mAng) * spd * k * dt);
+    p.walk += spd * k * dt * .11; p.moving = k * .5;
+  };
+  bufferInput(p.i);
   switch (p.state) {
     case 'free': {
-      walk(SPD, 16);
+      walk(SPD);
       if (pressed(p.i, 0)) { if (p.weapon === 'sword') startAttack(p, 0); else if (p.stam > 0) { p.state = 'draw'; p.st = 0; p.drawT = 0; p.relPending = false; } else { Snd.fail(); msg(p, 'Stamina habis', .8); } }
       else if (p.weapon === 'sword' && inp.h[1]) { p.state = 'block'; p.st = 0; p.blockT = 0; }
       else if (p.weapon === 'bow' && pressed(p.i, 1)) startRoll(p, inp.mx, inp.my, m);
@@ -172,7 +186,7 @@ function updatePlayer(p, dt) {
     case 'atk_r': {
       const a = COMBO[p.combo];
       const open = p.combo < 2 && !p.chainLock && p.st >= a.rec - CHAIN_WIN;
-      if (pressed(p.i, 0)) {
+      if (tapped(p.i, 0)) {
         if (open) { startAttack(p, p.combo + 1); break; }
         else if (p.combo < 2) p.chainLock = true; // terlalu cepat → kombo putus
       }
@@ -181,14 +195,14 @@ function updatePlayer(p, dt) {
     }
     case 'block': {
       p.blockT += dt;
-      walk(SPD * .42, 5);
+      aimWalk(SPD * HOLD_SPD);
       if (pressed(p.i, 0)) { startAttack(p, 0); break; }
       if (!inp.h[1]) { p.state = 'free'; p.st = 0; }
       break;
     }
     case 'draw': {
       p.drawT += dt;
-      if (m > 0) { p.face = turnTo(p.face, mAng, 7 * dt); movePlayer(p, Math.cos(mAng) * SPD * .42 * m * dt, Math.sin(mAng) * SPD * .42 * m * dt); p.walk += SPD * .42 * m * dt * .11; p.moving = m * .5; }
+      aimWalk(SPD * HOLD_SPD);
       if (!inp.h[0]) p.relPending = true;
       if (pressed(p.i, 1)) { startRoll(p, inp.mx, inp.my, m); break; }
       if (p.relPending && p.drawT >= .28) fireArrow(p);
@@ -206,7 +220,7 @@ function updatePlayer(p, dt) {
     }
     case 'roll_r': if (p.st >= .14) { p.state = 'free'; p.st = 0; } break;
     case 'heal': {
-      walk(SPD * .3, 4);
+      aimWalk(SPD * HOLD_SPD);
       if (!p.healDone && p.st >= .65) {
         p.healDone = true; p.hp = Math.min(p.maxHp, p.hp + HEAL_AMT); Snd.heal();
         for (let k = 0; k < 18; k++) part(p.x + rand(-10, 10), p.y + rand(-10, 10), rand(-20, 20), rand(-60, -10), rand(.5, 1), '#ffd27a', 2.5, true);
