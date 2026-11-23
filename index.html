@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>Koleksi Game — Browser Games</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #141a2e;
+      --panel-border: #2a3358;
+      --accent: #6c8dff;
+      --text: #e8ebf7;
+      --muted: #9aa3c7;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(1200px 800px at 50% -10%, #1b2444 0%, var(--bg) 60%);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      padding: 48px 20px 80px;
+    }
+
+    header {
+      max-width: 960px;
+      margin: 0 auto 40px;
+      text-align: center;
+    }
+
+    header .eyebrow {
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    header h1 {
+      margin: 0 0 12px;
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+    }
+
+    header p {
+      color: var(--muted);
+      max-width: 560px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+
+    .grid {
+      max-width: 960px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 24px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+
+    .card:hover, .card:focus-visible {
+      transform: translateY(-4px);
+      border-color: var(--accent);
+    }
+
+    .card-art {
+      height: 140px;
+      background: linear-gradient(135deg, #2a3f8f 0%, #6c2fa3 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+    }
+
+    .card-body {
+      padding: 18px 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .card-body .tag {
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .card-body h2 {
+      margin: 0;
+      font-size: 1.25rem;
+    }
+
+    .card-body p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+      flex: 1;
+    }
+
+    .card-body .play {
+      margin-top: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .empty-card {
+      border: 1px dashed var(--panel-border);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 220px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-align: center;
+      padding: 20px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">Game Collection</div>
+    <h1>Pilih Game</h1>
+    <p>Kumpulan game browser yang bisa langsung dimainkan. Klik salah satu untuk mulai bermain.</p>
+  </header>
+
+  <main class="grid">
+    <a class="card" href="dungeon-duo-portrait/index.html">
+      <div class="card-art" aria-hidden="true">🗡️</div>
+      <div class="card-body">
+        <span class="tag">Local Co-op · Endless Dungeon</span>
+        <h2>Dungeon Duo</h2>
+        <p>Kerja sama dua pemain melawan gelombang musuh dan boss di dungeon tanpa akhir. Bangun kombinasi melee, elemental, dan shield bersama partner.</p>
+        <span class="play">Mainkan →</span>
+      </div>
+    </a>
+
+    <a class="card" href="bara-kembar/index.html">
+      <div class="card-art" aria-hidden="true">🔥</div>
+      <div class="card-body">
+        <span class="tag">Local Co-op · Souls-like</span>
+        <h2>Bara Kembar</h2>
+        <p>Co-op souls-like tampilan atas untuk dua pemain di satu HP yang diletakkan mendatar — duduk berhadapan, nyalakan api unggun, bangkitkan rekan yang gugur, dan kalahkan bos bersama.</p>
+        <span class="play">Mainkan →</span>
+      </div>
+    </a>
+
+    <a class="card" href="nebula-duo/index.html">
+      <div class="card-art" aria-hidden="true">🚀</div>
+      <div class="card-body">
+        <span class="tag">Local Co-op · Vertical Shooter</span>
+        <h2>Nebula Duo</h2>
+        <p>Shooter vertikal tampilan atas tanpa akhir. Dua pesawat, dua joypad, satu layar — pilih upgrade masing-masing dan bertahan di level procedural yang terus berubah.</p>
+        <span class="play">Mainkan →</span>
+      </div>
+    </a>
+
+    <div class="empty-card">Game berikutnya akan muncul di sini.</div>
+  </main>
+</body>
+</html>
