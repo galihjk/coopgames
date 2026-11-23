@@ -143,8 +143,10 @@ function emberBg(dt) {
 function menuButtons() {
   const u = U, LW = H, LH = W;
   if (G.mode === 'title') {
-    const bw = 120 * u, bh = 44 * u, y = LH * .79;
-    return [{ id: 'mode', x: LW / 2 - bw - 8 * u, y: y - 50 * u, w: bw * 2 + 16 * u, h: 38 * u, label: G.solo ? '◂  SOLO + BOT  ▸' : '◂  2 PEMAIN  ▸' }, { id: 'l1', x: LW / 2 - bw - 8 * u, y, w: bw, h: bh, label: 'LEVEL 1', done: SAVE.cleared.includes(0) }, { id: 'l2', x: LW / 2 + 8 * u, y, w: bw, h: bh, label: 'LEVEL 2', done: SAVE.cleared.includes(1) }];
+    const n = LEVELS.length, gap = 10 * u, bw = Math.min(120 * u, (LW * .92 - gap * (n - 1)) / n), bh = 44 * u, y = LH * .79;
+    const tw = bw * n + gap * (n - 1), x0 = LW / 2 - tw / 2;
+    return [{ id: 'mode', x: x0, y: y - 50 * u, w: tw, h: 38 * u, label: G.solo ? '◂  SOLO + BOT  ▸' : '◂  2 PEMAIN  ▸' },
+      ...LEVELS.map((_, k) => ({ id: 'lv', lv: k, x: x0 + k * (bw + gap), y, w: bw, h: bh, label: 'LEVEL ' + (k + 1), done: SAVE.cleared.includes(k) }))];
   }
   if (G.mode === 'pause') {
     const bw = 120 * u, bh = 44 * u, y = LH * .77;
@@ -170,8 +172,7 @@ function uiTap(q) {
       if (f.x >= b.x && f.x <= b.x + b.w && f.y >= b.y && f.y <= b.y + b.h) {
         Snd.swap();
         if (b.id === 'mode') toggleSolo();
-        else if (b.id === 'l1') startGame(0);
-        else if (b.id === 'l2') startGame(1);
+        else if (b.id === 'lv') startGame(b.lv);
         else if (b.id === 'resume') G.mode = 'play';
         else if (b.id === 'quit' || b.id === 'title') { G.mode = 'title'; Snd.music(false); }
         return;

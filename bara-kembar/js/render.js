@@ -213,6 +213,28 @@ function drawEnemy(e) {
     };
     o.top = () => { ctx.strokeStyle = '#ffcf70'; ctx.lineWidth = 1.6; for (let k = -1; k <= 1; k++) line(-1, k * 3, -6, k * 4.5); }; // mahkota
     o.z = 6 + Math.sin(G.t * 2.5) * 3;
+  } else if (e.type === 'exec') {
+    const a = e.atk, spin = a && a.def === DEF.xSpin && a.ph === 'a';
+    o.armL = spin ? [9, 4] : [10, 3];
+    if (spin) o.armR = [11, 1];
+    o.extra = () => {
+      const [hx, hy] = o.armR, wa2 = st === 'stag' || st === 'parried' ? 2.6 : wa;
+      let bx = hx + Math.cos(wa2) * 22, by = hy + Math.sin(wa2) * 22;           // bola tergantung
+      if (spin) { bx = 41; by = 0; }                                              // diputar (badan ikut berputar)
+      else if (a && a.def === DEF.xHook && a.len) {                                // dilempar lurus ke depan
+        const k = a.ph === 'r' ? 1 - clamp(a.t / .3, 0, 1) : 1; bx = Math.max(hx, a.len * k / e.sc); by = 0;
+      }
+      ctx.strokeStyle = '#8a8a90'; ctx.lineWidth = 1.4; ctx.setLineDash([2.5, 2]); line(hx, hy, bx, by); ctx.setLineDash([]);
+      ctx.strokeStyle = e.p2 ? '#ff7a3a' : '#b0b8c4'; ctx.lineWidth = 1.4;
+      for (let k = 0; k < 6; k++) { const s = k / 6 * TAU + G.t * 2; line(bx + Math.cos(s) * 5, by + Math.sin(s) * 5, bx + Math.cos(s) * 8.5, by + Math.sin(s) * 8.5); } // duri
+      ctx.fillStyle = '#2e2a30'; ctx.beginPath(); ctx.arc(bx, by, 6, 0, TAU); ctx.fill(); ctx.stroke();
+      if (spin) { ctx.globalAlpha = .25; ctx.strokeStyle = e.p2 ? '#ff7a3a' : '#c8d0dc'; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(0, 0, 41, -1.4, -.1); ctx.stroke(); ctx.globalAlpha = 1; }
+    };
+    o.top = () => { // kerudung algojo
+      ctx.fillStyle = '#1a1418'; ctx.beginPath(); ctx.arc(.5, 0, 6.2, 0, TAU); ctx.fill();
+      ctx.strokeStyle = col; ctx.lineWidth = 1.4; ctx.stroke();
+      ctx.fillStyle = e.p2 ? '#ff7a3a' : '#ffd36a'; ctx.beginPath(); ctx.arc(3.6, -2, .9, 0, TAU); ctx.arc(3.6, 2, .9, 0, TAU); ctx.fill();
+    };
   }
   drawStick(o);
   if (st === 'parried') {

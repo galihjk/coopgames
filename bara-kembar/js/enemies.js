@@ -8,6 +8,7 @@ const ETYPE = {
   brute: { hp: 150, r: 19, speed: 46, poise: 75, aggro: 230, col: '#d06a4e', sc: 1.75, lw: 3.4 },
   warden: { hp: 680, r: 26, speed: 72, poise: 160, aggro: 999, col: '#c9b48a', sc: 2.5, lw: 4.2, boss: true },
   queen: { hp: 820, r: 20, speed: 64, poise: 130, aggro: 999, col: '#ff9a5c', sc: 2.0, lw: 3.4, boss: true },
+  exec: { hp: 920, r: 24, speed: 66, poise: 170, aggro: 999, col: '#9fb0c4', sc: 2.3, lw: 4.0, boss: true },
 };
 function makeEnemy(type, x, y) {
   const d = ETYPE[type];
@@ -164,6 +165,54 @@ const DEF = {
       }
     },
     tele: (e, a, p) => teleCircle(e.x, e.y, 60, p * .4) },
+
+  // ---- Algojo Rantai Bara (level 3) ----
+  xSwing: { wind: .62, act: .15, rec: .6, track: 4.5, move: 80, anim: [.5, -2.2, 2.0], cd: [.5, .9],
+    hitFn: (e, a) => meleeArc(e, a, 84, 2.6, 26, { parryable: true, knock: 250 }), tele: (e, a, p) => teleArc(e.x, e.y, e.face, 84 + e.r, 2.6, p),
+    next: e => e.p2 && Math.random() < .55 ? DEF.xSwing2 : null },
+  xSwing2: { wind: .38, act: .15, rec: .7, track: 5, move: 90, anim: [2.0, 2.4, -2.0], cd: [.5, .9],
+    hitFn: (e, a) => meleeArc(e, a, 84, 2.6, 24, { parryable: true, knock: 250 }), tele: (e, a, p) => teleArc(e.x, e.y, e.face, 84 + e.r, 2.6, p) },
+  // putaran rantai: area di sekeliling bos, bos ikut bergeser ke sasaran; setelahnya pusing (celah menyerang)
+  xSpin: { wind: .8, act: 1.5, rec: 1.0, track: 3, anim: [.5, 0, 0], cd: [.6, 1],
+    onAct: (e, a) => { a.tick = 0; Snd.swingHeavy(); },
+    actUpd: (e, a, dt) => {
+      e.face += 13 * dt;
+      if (a.tgt && a.tgt.alive) { const g = angTo(e, a.tgt); moveCircle(e, Math.cos(g) * 55 * e.spdMul * dt, Math.sin(g) * 55 * e.spdMul * dt); }
+      a.tick -= dt; if (a.tick <= 0) { a.tick = .3; aoe(e.x, e.y, 96, 14, { knock: 240, guard: 1.4, stagger: .3 }); Snd.swing(); }
+    },
+    tele: (e, a, p) => teleCircle(e.x, e.y, 96, p), teleAct: e => teleCircle(e.x, e.y, 96, .55) },
+  // kait rantai: garis lurus; yang terkena ditarik ke bos lalu ditebas
+  xHook: { wind: .65, act: .35, rec: .7, track: 4, anim: [.5, -1.6, 0], cd: [.5, .9],
+    windUpd: (e, a) => { if (a.t > .45 / e.spdMul) a.lock = true; },
+    onAct: (e, a) => { a.len = 0; Snd.chain(); Snd.swing(); },
+    actUpd: (e, a) => {
+      a.len = Math.min(280, a.t / .18 * 280);
+      const cx = Math.cos(e.face), cy = Math.sin(e.face);
+      for (const p of players) {
+        if (!p.alive || a.hit.has(p)) continue;
+        const ox = p.x - e.x, oy = p.y - e.y, along = ox * cx + oy * cy, perp = Math.abs(-ox * cy + oy * cx);
+        if (along > 0 && along < a.len + p.r && perp < 12 + p.r) {
+          a.hit.add(p); const r = hurtPlayer(p, 18, e, { parryable: true, knock: 60 });
+          if (r === 'parry') { enemyParried(e); return; }
+          if (r === 'hit') { const g = angTo(p, e); p.kx = Math.cos(g) * 420; p.ky = Math.sin(g) * 420; e.hookHit = true; }
+        }
+      }
+    },
+    next: e => { const h = e.hookHit; e.hookHit = false; return h ? DEF.xSwing : null; },
+    tele: (e, a, p) => teleLine(e.x, e.y, e.face, 280, 24, p) },
+  xSlam: { wind: .9, act: .12, rec: .9, track: 3, anim: [-2.2, 3.0, 0], cd: [.6, 1],
+    onAct: e => {
+      const x = fx(e, 80), y = fy(e, 80); aoe(x, y, 60, 32, { guard: 2, knock: 280, stagger: .5 }); slamFx(x, y, 60);
+      L.hazards.push({ kind: 'ring', x, y, rad: 20, speed: 220, max: e.p2 ? 320 : 220, w: 14, hit: new Set(), dmg: 14 });
+    },
+    tele: (e, a, p) => teleCircle(fx(e, 80), fy(e, 80), 60, p) },
+  // retakan bara: deret pilar api menjalar lurus ke depan (tidak bisa ditangkis)
+  xQuake: { wind: .7, act: .05, rec: .8, track: 5, anim: [.5, -2.8, -2.8], cd: [.7, 1.1],
+    onAct: e => {
+      for (let k = 1; k <= 7; k++) { const x = fx(e, 30 + k * 52), y = fy(e, 30 + k * 52); if (tileSolidW(x, y)) break; L.hazards.push({ kind: 'pillar', x, y, r: 40, t: 0, delay: .55 + k * .11 }); }
+      Snd.bossTele();
+    },
+    tele: (e, a, p) => teleLine(e.x, e.y, e.face, 390, 30, p) },
 };
 function startAtk(e, def, tgt) {
   e.state = 'atk'; e.atk = { def, ph: 'w', t: 0, tgt: tgt || e.tgt, hit: new Set() };
@@ -271,6 +320,18 @@ const AI = {
     let mvA = d < 160 ? a + Math.PI : d > 300 ? a : a + e.strafe * Math.PI / 2;
     if (moveCircle(e, Math.cos(mvA) * e.speed * dt, Math.sin(mvA) * e.speed * dt)) e.strafe *= -1;
     if (Math.random() < .006) e.strafe *= -1;
+  },
+  exec(e, t, dt) {
+    if (!e.p2 && e.hp < e.maxHp * .5) { e.p2 = true; e.spdMul = 1.2; startAtk(e, DEF.wRoar, t); banner('', 'Rantai membara!', 2, '#ff7a3a', false); return; }
+    const d = dist(e, t);
+    e.face = turnTo(e.face, angTo(e, t), 4 * dt);
+    if (e.cd <= 0) {
+      const r = Math.random();
+      if (d < 100) { startAtk(e, r < .55 ? DEF.xSwing : r < .85 ? DEF.xSpin : DEF.xSlam, t); return; }
+      if (d < 290) { startAtk(e, r < .45 ? DEF.xHook : r < .7 ? DEF.xSlam : e.p2 ? DEF.xQuake : DEF.xSpin, t); return; }
+      startAtk(e, e.p2 && r < .5 ? DEF.xQuake : DEF.xHook, t); return;
+    }
+    if (d > 85) { moveCircle(e, Math.cos(e.face) * e.speed * e.spdMul * dt, Math.sin(e.face) * e.speed * e.spdMul * dt); e.walk += e.speed * dt * .08; }
   }
 };
 function updateEnemy(e, dt) {
