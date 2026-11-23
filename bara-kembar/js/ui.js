@@ -214,7 +214,7 @@ function menuButtons(i) {
     const bw = 120 * u, y = clearTop(LH) + 268 * u, last = G.clear.idx + 1 >= LEVELS.length;
     return [{ id: 'title', x: LW / 2 - bw - 8 * u, y, w: bw, h: 42 * u, label: 'KE JUDUL' }, { id: 'cont', x: LW / 2 + 8 * u, y, w: bw, h: 42 * u, label: last ? 'SELESAI ▸' : 'LANJUT ▸', hl: true }];
   }
-  if (G.mode === 'win' && G.winT > 2) return [{ id: 'title', x: LW / 2 - 70 * u, y: LH * .82, w: 140 * u, h: 44 * u, label: 'KE JUDUL' }];
+  if (G.mode === 'win' && G.winT > WIN_BTN_T) return [{ id: 'title', x: LW / 2 - 70 * u, y: winTop(LH) + 262 * u, w: 140 * u, h: 44 * u, label: 'KE JUDUL' }];
   return [];
 }
 function drawSwatch(b) {
@@ -321,15 +321,33 @@ function drawPause() {
   });
   drawMenuButtons();
 }
+// ---------- layar tamat: epilog muncul baris demi baris ----------
+const EPILOG = [
+  'Naga Bara Purba tumbang.',
+  'Dari dadanya, jantung api yang dirampas',
+  'Sang Pemadam kembali berdenyut.',
+  'Dua bara kembar menyentuhnya —',
+  'dan kawah menyala, menerangi dunia',
+  'yang lama padam.',
+];
+const WIN_BTN_T = 11; // detik sampai tombol KE JUDUL muncul
+const winTop = LH => G.solo ? LH * .25 : LH / 2 + 20 * U;
 function drawWin() {
   G.winT += 1 / 60;
   emberBg(1 / 60);
+  const t = G.winT, fade = (t0, d = 1.2) => clamp((t - t0) / d, 0, 1), u = U;
+  const best = Object.values(SAVE.best).reduce((a, b) => a + b, 0);
   for (const i of frames()) inFrame(i, (LW, LH) => {
-    const a = clamp(G.winT / 1.5, 0, 1); ctx.globalAlpha = a;
-    txt('NYALA BERTAHAN', LW / 2, LH * .62, 30 * U, '#ffd27a', 'center', SERIF, '400');
-    txt('Kalian menaklukkan semua level. Terima kasih telah bermain!', LW / 2, LH * .62 + 30 * U, 12 * U, '#cfc3a8', 'center', SERIF, 'italic 400');
+    const top = winTop(LH);
+    EPILOG.forEach((s, k) => { ctx.globalAlpha = fade(.8 + k * 1.1); txt(s, LW / 2, top + k * 20 * u, 13 * u, k === 0 ? '#ffd27a' : '#e8dcc0', 'center', SERIF, k === 0 ? '400' : 'italic 400'); });
+    ctx.globalAlpha = fade(8, 1.6);
+    txt('NYALA BERTAHAN', LW / 2, top + 152 * u, 30 * u * (1 + (1 - fade(8, 1.6)) * .15), '#ffd27a', 'center', SERIF, '400');
+    ctx.globalAlpha = fade(9.2);
+    txt(SAVE.cleared.length + ' dari ' + LEVELS.length + ' level tamat' + (SAVE.clearedNormal.length === LEVELS.length ? '  ·  semua di Normal ✦' : ''), LW / 2, top + 186 * u, 11 * u, '#cfc3a8', 'center', 'sans-serif', '500');
+    if (best) txt('Total rekor waktu: ' + fmtTime(best), LW / 2, top + 205 * u, 11 * u, '#cfc3a8', 'center', 'sans-serif', '500');
+    txt('TAMAT  ·  Terima kasih telah bermain!', LW / 2, top + 234 * u, 12 * u, '#e8d9b0', 'center', SERIF, 'italic 400');
     ctx.globalAlpha = 1;
-    if (i === 1 && G.winT > 2) txt('Menunggu P1…', LW / 2, LH * .82 + 22 * U, 13 * U, 'rgba(232,217,176,.7)', 'center', SERIF, 'italic 400');
+    if (i === 1 && t > WIN_BTN_T) txt('Menunggu P1…', LW / 2, top + 284 * u, 13 * u, 'rgba(232,217,176,.7)', 'center', SERIF, 'italic 400');
   });
   drawMenuButtons();
 }

@@ -446,3 +446,162 @@ BEAST_DRAW.egg = e => {
   }
   ctx.restore();
 };
+
+// =====================================================================
+//  LEVEL 10 — KAWAH NAGA: Naga Bara Purba (bos terakhir, 3 fase)
+//  Fase 1 (darat)  : cakar, ekor ke belakang, injakan, semburan api menyapu
+//  Fase 2 (<66% HP): mengudara — sambaran berantai menjatuhkan bara
+//  Fase 3 (<33% HP): murka — lava merembes dari tepi kawah (arena menyempit),
+//                    hujan meteor, semburan api ganda
+//  Badannya berputar lambat: satu pemain memancing kepala, yang lain menyerang dari samping.
+// =====================================================================
+ETYPE.dragon = { hp: 2900, r: 30, speed: 62, poise: 320, aggro: 999, col: '#e8603a', sc: 3, lw: 3, boss: true };
+
+// posisi kepala di dunia (leher panjang): badan menghadap e.face, kepala ke arah e.headAng
+const DRAGON = { shoulder: 9, neck: 15 };
+function dragonHead(e) {
+  const s = e.sc, hx = e.x + Math.cos(e.face) * DRAGON.shoulder * s, hy = e.y + Math.sin(e.face) * DRAGON.shoulder * s;
+  const ha = e.headAng == null ? e.face : e.headAng;
+  return { x: hx + Math.cos(ha) * DRAGON.neck * s, y: hy + Math.sin(ha) * DRAGON.neck * s, a: ha };
+}
+
+Object.assign(DEF, {
+  dClaw: { wind: .6, act: .16, rec: .6, track: 2.5, move: 70, anim: [.6, -2.2, 1.8], cd: [.4, .8],
+    hitFn: (e, a) => meleeArc(e, a, 80, 2.2, 36, { parryable: true, knock: 260 }), tele: (e, a, p) => teleArc(e.x, e.y, e.face, 80 + e.r, 2.2, p) },
+  dTail: { wind: .6, act: .22, rec: .7, anim: [0, 0, 0], cd: [.4, .8],
+    hitFn: (e, a) => { const f = e.face; e.face = f + Math.PI; meleeArc(e, a, 110, 2.6, 34, { unblockable: true, knock: 340, stagger: .5 }); e.face = f; return false; },
+    tele: (e, a, p) => teleArc(e.x, e.y, e.face + Math.PI, 110 + e.r, 2.6, p) },
+  dStomp: { wind: .8, act: .1, rec: .8, anim: [0, 0, 0], cd: [.4, .8],
+    onAct: e => { aoe(e.x, e.y, 105, 32, { knock: 340, guard: 1.8, stagger: .5 }); slamFx(e.x, e.y, 105, '#ff9a5c'); L.hazards.push({ kind: 'ring', x: e.x, y: e.y, rad: 50, speed: 230, max: 340, w: 16, hit: new Set(), dmg: 14 }); },
+    tele: (e, a, p) => teleCircle(e.x, e.y, 105, p) },
+  // semburan api: kepala menyapu dari satu sisi ke sisi lain; fase 3 menyembur dua arus
+  dBreath: { wind: .9, act: 1.9, rec: .8, anim: [0, 0, 0], cd: [.4, .8],
+    onStart: (e, a) => { a.dir = Math.random() < .5 ? 1 : -1; a.ang = e.face - a.dir * .95; Snd.bossTele(); },
+    windUpd: (e, a, dt) => { e.headAng = turnTo(e.headAng == null ? e.face : e.headAng, a.ang, 4 * dt); }, // kepala menoleh ke awal sapuan
+    onAct: (e, a) => { a.emit = 0; Snd.fire(); },
+    actUpd: (e, a, dt) => {
+      a.ang += a.dir * 1.0 * dt; e.headAng = a.ang;
+      a.emit -= dt;
+      if (a.emit <= 0) {
+        a.emit = .045; const h = dragonHead(e);
+        const streams = e.phase >= 3 ? [a.ang, 2 * e.face - a.ang] : [a.ang]; // fase 3: arus kedua bercermin
+        for (const g of streams) spawnProj('e', h.x + Math.cos(g) * 10, h.y + Math.sin(g) * 10, g + rand(-.08, .08), 330, 13, { kind: 'orb', life: .75, r: 7, src: e });
+        if (Math.random() < .25) Snd.fire();
+      }
+    },
+    onRec: e => { e.headAng = null; },
+    tele: (e, a, p) => { const h = dragonHead(e); teleArc(h.x, h.y, e.face, 250, 1.9, p * .6); } },
+  // sambaran: seperti Induk Wyvern, lebih panjang & bara lebih rapat; fase 2 berantai 2–3 kali
+  dFlight: { wind: .9, act: 2.0, rec: .7, anim: [0, 0, 0], cd: [.4, .8],
+    onStart: (e, a) => {
+      const g = angTo(e, a.tgt); let len = dist(e, a.tgt) + 220;
+      while (len > 80 && !inArena({ x: e.x + Math.cos(g) * len, y: e.y + Math.sin(g) * len })) len -= 20;
+      Object.assign(a, { sx: e.x, sy: e.y, ex: e.x + Math.cos(g) * len, ey: e.y + Math.sin(g) * len, g, len, drop: 0 });
+      e.face = g; e.headAng = null; Snd.roar(); shake(6);
+    },
+    windUpd: e => { e.flapFast = true; },
+    onAct: e => { e.air = true; Snd.swingHeavy(); },
+    actUpd: (e, a, dt) => {
+      const k = clamp(a.t / 2, 0, 1); e.x = lerp(a.sx, a.ex, ease(k)); e.y = lerp(a.sy, a.ey, ease(k)); e.z = 30 + Math.sin(k * Math.PI) * 70;
+      a.drop -= dt; if (a.drop <= 0 && k > .06 && k < .94) { a.drop = .08; for (const s of [-1, 1]) L.hazards.push({ kind: 'pillar', x: e.x + Math.cos(a.g + Math.PI / 2) * s * 26, y: e.y + Math.sin(a.g + Math.PI / 2) * s * 26, r: 30, t: 0, delay: .5 }); }
+    },
+    onRec: e => { e.air = false; e.z = 0; e.flapFast = false; resolveCircle(e); aoe(e.x, e.y, 90, 36, { knock: 320, guard: 2, stagger: .5 }); slamFx(e.x, e.y, 90, '#ff9a5c'); },
+    next: e => { if (e.flights > 0) { e.flights--; return DEF.dFlight; } return null; },
+    tele: (e, a, p) => { teleLine(a.sx, a.sy, a.g, a.len, 80, p); teleCircle(a.ex, a.ey, 90, p); },
+    teleAct: (e, a) => teleCircle(a.ex, a.ey, 90, 1) },
+  dMeteor: { wind: .8, act: .05, rec: .7, anim: [0, 0, 0], cd: [.4, .8],
+    onStart: e => { e.flapFast = true; Snd.roar(); },
+    onAct: e => {
+      e.flapFast = false; const alive = players.filter(p => p.alive); if (!alive.length) return;
+      for (let k = 0; k < 12; k++) { const p = alive[k % alive.length], x = p.x + (k < alive.length ? 0 : rand(-140, 140)), y = p.y + (k < alive.length ? 0 : rand(-140, 140)); if (!tileSolidW(x, y) && inArena({ x, y })) L.hazards.push({ kind: 'pillar', x, y, r: 38, t: 0, delay: .9 + k * .12 }); }
+      Snd.bossTele();
+    } },
+  dRoar: { wind: 1.3, act: .2, rec: .6, anim: [0, 0, 0], cd: [.4, .6],
+    onStart: e => { e.inv = true; e.flapFast = true; Snd.roar(); shake(14); },
+    onAct: e => {
+      e.inv = false; e.flapFast = false;
+      for (const p of players) if (p.alive) { const g = angTo(e, p); if (dist(e, p) < 240) { p.kx = Math.cos(g) * 460; p.ky = Math.sin(g) * 460; } }
+      L.hazards.push({ kind: 'ring', x: e.x, y: e.y, rad: 40, speed: 260, max: 420, w: 18, hit: new Set(), dmg: 14 });
+    },
+    next: e => e.phase === 2 ? (e.flights = 2, DEF.dFlight) : null,
+    tele: (e, a, p) => teleCircle(e.x, e.y, 240, p * .4) },
+});
+
+// fase & lava dicek tiap frame (juga saat sedang menyerang)
+TICK.dragon = (e, dt) => {
+  if (e.phase == null) e.phase = 1;
+  if (e.phase === 1 && e.hp < e.maxHp * .66) { e.phase = 2; e.pend = DEF.dRoar; banner('', 'Naga Bara Purba mengudara!', 2.4, '#ff9a5c', false); }
+  if (e.phase === 2 && e.hp < e.maxHp * .33) {
+    e.phase = 3; e.p2 = true; e.spdMul = 1.15; e.pend = DEF.dRoar; e.lavaT = 0; e.lavaRing = 430;
+    banner('', 'Kawah meretak — lava merembes!', 2.6, '#ff6a3a', false);
+  }
+  if (e.phase === 3) { // lava merambat dari tepi ke tengah: arena menyempit
+    e.lavaT -= dt;
+    if (e.lavaT <= 0 && L.hazards.filter(h => h.kind === 'lava').length < 26) {
+      e.lavaT = 6.5; e.lavaRing = Math.max(170, e.lavaRing - 32);
+      for (let k = 0; k < 3; k++) {
+        const t = L.arenaTiles.filter(t => Math.abs(dist(t, L.bossSpawn) - e.lavaRing) < 40 && players.every(p => dist(t, p) > 60))[(Math.random() * 30) | 0];
+        if (t) L.hazards.push({ kind: 'lava', x: t.x + rand(-10, 10), y: t.y + rand(-10, 10), r: 8, rMax: rand(40, 58), t: 0 });
+      }
+      Snd.pillar(); shake(3);
+    }
+  }
+};
+
+AI.dragon = (e, t, dt) => {
+  if (e.pend) { const d = e.pend; e.pend = null; startAtk(e, d, t); return; }
+  const d = dist(e, t), a = angTo(e, t), behind = Math.abs(angDiff(e.face, a)) > 2.0;
+  e.headAng = null;
+  if (e.cd <= 0) {
+    const r = Math.random();
+    if (e.phase >= 3 && r < .18) { startAtk(e, DEF.dMeteor, t); return; }
+    if (behind && d < 150) { startAtk(e, DEF.dTail, t); return; }
+    if (d < 115) { startAtk(e, r < .45 ? DEF.dClaw : r < .75 ? DEF.dStomp : DEF.dBreath, t); return; }
+    if (e.phase >= 2 && r < .38) { e.flights = e.phase >= 3 ? 1 : 0; startAtk(e, DEF.dFlight, t); return; }
+    startAtk(e, DEF.dBreath, t); return;
+  }
+  e.face = turnTo(e.face, a, 2.2 * dt); // badan berputar lambat
+  if (d > 110) { moveCircle(e, Math.cos(e.face) * e.speed * e.spdMul * dt, Math.sin(e.face) * e.speed * e.spdMul * dt); e.walk += e.speed * dt * .06; }
+};
+
+// ---------- gambar naga ----------
+BEAST_DRAW.dragon = e => {
+  const dormant = L.bossState === 'dormant', k = e.dead ? clamp(e.deadT / 1.5, 0, 1) : 0;
+  const col = e.flash > 0 ? '#fff' : dormant ? '#6a645c' : e.dead ? '#3a2a24' : e.col, s = e.sc, z = e.z || 0;
+  // kepala menoleh ke sasaran lebih cepat daripada badan (dibatasi ±1,1 rad dari arah badan)
+  let want = e.headAng;
+  if (want == null) { const tg = e.tgt && e.tgt.alive ? e.tgt : null; want = tg && !dormant ? e.face + clamp(angDiff(e.face, angTo(e, tg)), -1.1, 1.1) : e.face + (dormant ? .5 : 0); }
+  e.headView = e.headView == null ? want : turnTo(e.headView, want, .12);
+  const ha = e.headView - e.face, flap = Math.sin(G.t * (e.air || e.flapFast ? 9 : 1.6) + e.x) * (dormant ? .15 : 1);
+  ctx.save(); ctx.translate(e.x, e.y - z); ctx.rotate(e.face); ctx.scale(s, s); ctx.globalAlpha *= 1 - k * .8; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = col; ctx.lineWidth = 1.4;
+  for (const sd of [-1, 1]) { // sayap raksasa
+    const tip = 26 + flap * 7;
+    ctx.fillStyle = dormant ? 'rgba(40,36,32,.85)' : 'rgba(70,20,12,.8)';
+    ctx.beginPath(); ctx.moveTo(4, sd * 4); ctx.lineTo(-2, sd * tip); ctx.quadraticCurveTo(-9, sd * tip * .75, -14, sd * tip * .55); ctx.quadraticCurveTo(-12, sd * 9, -6, sd * 5); ctx.closePath(); ctx.fill(); ctx.stroke();
+    for (const [x1, y1] of [[-2, tip], [-9, tip * .75], [-14, tip * .55]]) line(4, sd * 4, x1, sd * y1); // jari sayap
+  }
+  // ekor bersegmen yang berayun
+  let px = -9, py = 0;
+  for (let j = 1; j <= 6; j++) { const nx = -9 - j * 3.6, ny = Math.sin(G.t * 2 + j * .7 + e.y) * (j * .7) * (dormant ? .3 : 1); ctx.lineWidth = 3.2 - j * .38; line(px, py, nx, ny); px = nx; py = ny; }
+  ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - 4, py - 3); ctx.lineTo(px - 4, py + 3); ctx.closePath(); ctx.fill();
+  // badan
+  ctx.lineWidth = 1.4; ctx.fillStyle = '#1e120e'; ctx.beginPath(); ctx.ellipse(-1, 0, 11, 6.5, 0, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = dormant ? 'rgba(120,110,100,.5)' : 'rgba(255,150,80,.55)'; ctx.lineWidth = .9;
+  for (let j = 0; j < 4; j++) line(-7 + j * 3.5, -2, -5.5 + j * 3.5, 2); // sisik punggung
+  // leher bersegmen ke kepala
+  const sx = DRAGON.shoulder, hx = sx + Math.cos(ha) * DRAGON.neck, hy = Math.sin(ha) * DRAGON.neck;
+  ctx.fillStyle = '#1e120e'; ctx.strokeStyle = col; ctx.lineWidth = 1.2;
+  for (let j = 0; j <= 4; j++) { const t = j / 4, cx = lerp(sx - 2, hx, t), cy = lerp(0, hy, t) + Math.sin(t * Math.PI) * hy * -.25; ctx.beginPath(); ctx.arc(cx, cy, 3.4 - t * .8, 0, TAU); ctx.fill(); ctx.stroke(); }
+  // kepala
+  ctx.save(); ctx.translate(hx, hy); ctx.rotate(ha);
+  const charging = e.atk && e.atk.def === DEF.dBreath;
+  ctx.beginPath(); ctx.ellipse(2, 0, 5.5, 3.4, 0, 0, TAU); ctx.fill(); ctx.stroke();
+  line(0, -2.6, -4.5, -6); line(0, 2.6, -4.5, 6);                                // tanduk
+  if (!e.dead && !dormant) {
+    ctx.fillStyle = e.phase >= 3 ? '#fff1c0' : '#ffd27a'; ctx.beginPath(); ctx.arc(4, -1.5, .8, 0, TAU); ctx.arc(4, 1.5, .8, 0, TAU); ctx.fill();
+    if (charging) { ctx.fillStyle = `rgba(255,180,80,${.5 + Math.sin(G.t * 30) * .3})`; ctx.beginPath(); ctx.arc(7.5, 0, 2.2, 0, TAU); ctx.fill(); } // mulut membara
+  }
+  ctx.restore();
+  ctx.restore();
+};

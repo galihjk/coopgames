@@ -123,6 +123,7 @@ function updatePlayer(p, dt) {
     if (Math.hypot(p.kx, p.ky) < 6) p.kx = p.ky = 0;
   }
   if (p.slowT > 0) p.slowT -= dt; // terjerat jaring laba-laba
+  if (p.lavaCd > 0) p.lavaCd -= dt;
   p.vface = turnTo(p.vface == null ? p.face : p.vface, p.face, VTURN * dt);
   if (p.state === 'down') return;
   // stamina
@@ -255,6 +256,7 @@ function updatePlayer(p, dt) {
 
 function hurtPlayer(p, dmg, src, o = {}) {
   if (!p.alive || p.iframe > 0) return 'miss';
+  if (o.dot) { p.hp -= dmg * RULE.dmgTaken(); p.flash = .08; if (p.hp <= 0) downPlayer(p); return 'hit'; } // lava: damage berkala
   const by = src && (src.src || src); if (by && by.maxHp && !by.boss) dmg *= lvlMul(); // musuh biasa: +6%/level
   dmg *= RULE.dmgTaken();
   const a = Math.atan2(src.y - p.y, src.x - p.x);

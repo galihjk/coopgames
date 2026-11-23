@@ -530,6 +530,8 @@ function summonTotems(e) {
   e.shield = true; e.vulnT = 0; e.needTotems = false;
 }
 // dicek tiap frame (juga saat bos sedang menyerang): perisai runtuh begitu totem terakhir hancur
+const TICK = {};
+TICK.lantern = lanternTick;
 function lanternTick(e, dt) {
   if (!e.totems) return;
   if (e.shield && !e.totems.some(o => !o.dead)) { e.shield = false; e.vulnT = e.p2 ? 12 : 14; banner('', 'Perisai lentera runtuh — serang sekarang!', 2.2, '#ffd27a', false); Snd.guardBreak(); shake(6); }
@@ -580,7 +582,7 @@ function updateEnemy(e, dt) {
   if (e.dead) { e.deadT += dt; return; }
   if (e.kx || e.ky) { moveCircle(e, e.kx * dt, e.ky * dt); const f = Math.pow(.001, dt); e.kx *= f; e.ky *= f; if (Math.hypot(e.kx, e.ky) < 5) e.kx = e.ky = 0; }
   if (e.boss && L.bossState !== 'active') return;
-  if (e.type === 'lantern') lanternTick(e, dt);
+  if (TICK[e.type]) TICK[e.type](e, dt); // mekanik bos yang berjalan tiap frame (juga saat sedang menyerang)
   e.cd -= dt; e.st += dt;
   if (e.state === 'stag' || e.state === 'parried') { if (e.st >= e.stagDur) { e.state = 'chase'; e.cd = Math.max(e.cd, .3); } return; }
   if (e.state === 'atk') { runAttack(e, dt); return; }

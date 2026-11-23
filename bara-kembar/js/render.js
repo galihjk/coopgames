@@ -434,6 +434,12 @@ function render() {
   for (const b of L.bonfires) drawBonfire(b);
   if (L.portal) drawPortal(L.portal);
   // hazard di tanah
+  for (const h of L.hazards) if (h.kind === 'lava') { // genangan lava digambar paling bawah
+    const gr = ctx.createRadialGradient(h.x, h.y, 2, h.x, h.y, h.r);
+    gr.addColorStop(0, '#ffd27a'); gr.addColorStop(.45, '#ff7a2a'); gr.addColorStop(.85, '#a0281a'); gr.addColorStop(1, 'rgba(40,10,6,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(30,10,6,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(h.x, h.y, h.r * (.55 + Math.sin(G.t * 2 + h.x) * .05), 0, TAU); ctx.stroke(); // kerak
+  }
   for (const h of L.hazards) {
     if (h.kind === 'pillar') {
       if (!h.done) teleCircle(h.x, h.y, h.r, clamp(h.t / h.delay, 0, 1));
@@ -557,6 +563,7 @@ function drawLighting() {
   for (const p of players) if (!p.dead) light(p.x, p.y, p.alive ? 230 : 120);
   for (const b of L.bonfires) light(b.x, b.y, b.lit ? 260 + Math.sin(G.t * 7) * 8 : 70, b.lit ? 1 : .5);
   for (const pr of L.projectiles) if (pr.kind === 'orb') light(pr.x, pr.y, 70, .8);
+  for (const h of L.hazards) if (h.kind === 'lava') light(h.x, h.y, h.r * 2.2, .9);
   for (const e of L.enemies) if (!e.dead && (e.type === 'totem' || e.type === 'lantern')) light(e.x, e.y, e.type === 'totem' ? 110 : 190, .8); // totem & lentera menerangi sekitar
   for (const h of L.hazards) if (h.kind === 'pillar') light(h.x, h.y, h.done ? 140 : 60, h.done ? 1 : .4);
   if (L.portal) light(L.portal.x, L.portal.y, 200);

@@ -60,6 +60,10 @@ function updateProj(dt) {
         for (let k = 0; k < 12; k++) part(h.x, h.y, rand(-60, 60), rand(-60, 60), rand(.3, .6), '#4a3a28', rand(2, 3.5));
       }
       if (h.t > h.delay + .6) h.gone = true;
+    } else if (h.kind === 'lava') { // genangan lava: melebar pelan, membakar yang berdiri di atasnya
+      h.t += dt; h.r = Math.min(h.rMax, h.r + 22 * dt);
+      for (const p of players) if (p.alive && dist(p, h) < h.r * .85 && !(p.lavaCd > 0)) { p.lavaCd = .5; hurtPlayer(p, 7, h, { dot: true }); if (!p.msg) msg(p, 'Lava! Menyingkir', .8); }
+      if (Math.random() < .08) part(h.x + rand(-h.r, h.r) * .6, h.y + rand(-h.r, h.r) * .6, 0, rand(-40, -15), rand(.4, .8), '#ffb347', 2, true);
     } else if (h.kind === 'ring') {
       h.rad += h.speed * dt;
       for (const p of players) if (p.alive && !h.hit.has(p) && Math.abs(dist(p, h) - h.rad) < h.w / 2 + p.r * .6) { h.hit.add(p); hurtPlayer(p, h.dmg, h, { knock: 220 }); }

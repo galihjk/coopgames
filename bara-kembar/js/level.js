@@ -139,8 +139,9 @@ function prerenderLevel() {
       g.strokeRect(px + .75, py + .75, T - 1.5, T - 1.5);
       }
       if (L.def.style !== 'forest' && rnd() < .5) { g.beginPath(); if (rnd() < .5) { g.moveTo(px + T / 2, py); g.lineTo(px + T / 2, py + T); } else { g.moveTo(px, py + T / 2); g.lineTo(px + T, py + T / 2); } g.stroke(); }
-      if (rnd() < .25) { // retakan
-        g.strokeStyle = 'rgba(0,0,0,.4)'; g.lineWidth = 1; g.beginPath();
+      if (rnd() < (L.def.style === 'volcano' ? .3 : .25)) { // retakan (gunung berapi: berisi lava menyala)
+        const lava = L.def.style === 'volcano';
+        g.strokeStyle = lava ? `rgba(255,${90 + rnd() * 60},40,${.35 + rnd() * .3})` : 'rgba(0,0,0,.4)'; g.lineWidth = lava ? 1.6 : 1; g.beginPath();
         let cx = px + rnd() * T, cy = py + rnd() * T; g.moveTo(cx, cy);
         for (let k = 0; k < 4; k++) { cx += rnd() * 14 - 7; cy += rnd() * 14 - 7; g.lineTo(cx, cy); } g.stroke();
       }
@@ -160,6 +161,10 @@ function prerenderLevel() {
       const v = rnd() * 8 - 4;
       g.fillStyle = `rgb(${wr + v},${wg + v},${wb + v})`; g.fillRect(px, py, T, T);
       if (L.def.style === 'forest') continue; // tajuk pohon digambar sesudahnya (bisa menjorok ke petak sebelah)
+      if (L.def.style === 'volcano') { // batu basal kasar: bidang-bidang miring, tanpa bata
+        for (let k = 0; k < 3; k++) { g.fillStyle = `rgba(${k ? 0 : 255},${k ? 0 : 200},${k ? 0 : 160},${k ? .18 : .05})`; g.beginPath(); g.moveTo(px + rnd() * T, py + rnd() * T); for (let j = 0; j < 3; j++) g.lineTo(px + rnd() * T, py + rnd() * T); g.fill(); }
+        continue;
+      }
       g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1.5;
       for (let r = 0; r < 3; r++) { // bata
         const yy = py + r * 16; g.beginPath(); g.moveTo(px, yy); g.lineTo(px + T, yy); g.stroke();

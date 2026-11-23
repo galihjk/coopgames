@@ -74,7 +74,7 @@ function botNotice(key) {
 //          block: bisa ditangkis, walk: bisa dihindari dengan berjalan, ring, lead: waktu reaksi }
 let BOT_ARC = null; // serangan tebasan: [jangkauan, lebar busur]
 function botThreat(b) {
-  if (!BOT_ARC) BOT_ARC = new Map([[DEF.gSlash, [40, 2.0]], [DEF.gHeavy, [46, 2.2]], [DEF.bSweep, [60, 2.8]], [DEF.wSweep, [78, 2.9]], [DEF.wSweep2, [78, 2.9]], [DEF.xSwing, [84, 2.6]], [DEF.xSwing2, [84, 2.6]], [DEF.k1, [64, 2.2]], [DEF.k2, [64, 2.2]], [DEF.lSweep, [92, 3.0]], [DEF.pBash, [36, 1.6]], [DEF.wBite, [34, 1.6]], [DEF.eSweep, [72, 2.6]], [DEF.fBite, [58, 2.0]], [DEF.wvBite, [70, 1.6]]]);
+  if (!BOT_ARC) BOT_ARC = new Map([[DEF.gSlash, [40, 2.0]], [DEF.gHeavy, [46, 2.2]], [DEF.bSweep, [60, 2.8]], [DEF.wSweep, [78, 2.9]], [DEF.wSweep2, [78, 2.9]], [DEF.xSwing, [84, 2.6]], [DEF.xSwing2, [84, 2.6]], [DEF.k1, [64, 2.2]], [DEF.k2, [64, 2.2]], [DEF.lSweep, [92, 3.0]], [DEF.pBash, [36, 1.6]], [DEF.wBite, [34, 1.6]], [DEF.eSweep, [72, 2.6]], [DEF.fBite, [58, 2.0]], [DEF.wvBite, [70, 1.6]], [DEF.dClaw, [80, 2.2]]]);
   let best = null;
   const add = (key, t, fx, fy, src, o = {}) => {
     if (best && best.t <= t) return;
@@ -101,6 +101,15 @@ function botThreat(b) {
     else if (d === DEF.pThrust) line(95, 8, 900);
     else if (d === DEF.wvTail) { // ekor menyabet ke belakang wyvern
       if (Math.hypot(ox, oy) - b.r <= 84 + e.r * .5 + 20 && Math.abs(angDiff(e.face + Math.PI, angTo(e, b))) <= 1.2 + .35) add(a, left, ox, oy, e, { block: false });
+    } else if (d === DEF.dTail) {
+      if (Math.hypot(ox, oy) - b.r <= 110 + e.r * .5 + 20 && Math.abs(angDiff(e.face + Math.PI, angTo(e, b))) <= 1.3 + .35) add(a, left, ox, oy, e, { block: false });
+    } else if (d === DEF.dStomp) {
+      if (Math.hypot(ox, oy) < 105 + pad) add(a, left, ox, oy, e);
+    } else if (d === DEF.dBreath) { // kipas api di depan kepala: menjauh / keluar dari sapuan
+      const h = dragonHead(e);
+      if (dist(b, h) < 270 && Math.abs(angDiff(e.face, angTo(h, b))) < 1.1) add(a, left, b.x - h.x, b.y - h.y, h);
+    } else if (d === DEF.dFlight && a.ex != null) {
+      if (Math.hypot(b.x - a.ex, b.y - a.ey) < 90 + pad) add(a, a.ph === 'w' ? left + 2 : 2 - a.t, b.x - a.ex, b.y - a.ey, { x: a.ex, y: a.ey });
     } else if (d === DEF.wvFlight && a.ex != null) { // titik pendaratan
       if (Math.hypot(b.x - a.ex, b.y - a.ey) < 70 + pad) add(a, a.ph === 'w' ? left + 1.6 : 1.6 - a.t, b.x - a.ex, b.y - a.ey, { x: a.ex, y: a.ey });
     }
@@ -138,7 +147,8 @@ function botThreat(b) {
     }
   }
   for (const h of L.hazards) {
-    if (h.kind === 'root' && !h.done) { if (dist(b, h) < h.r + pad) add(h, h.delay - h.t, b.x - h.x, b.y - h.y, h); }
+    if (h.kind === 'lava') { if (dist(b, h) < h.r * .85 + b.r) add(h, 0, b.x - h.x, b.y - h.y, h, { block: false }); }  // keluar dari lava
+    else if (h.kind === 'root' && !h.done) { if (dist(b, h) < h.r + pad) add(h, h.delay - h.t, b.x - h.x, b.y - h.y, h); }
     else if (h.kind === 'pillar' && !h.done) { if (dist(b, h) < h.r + pad) add(h, h.delay - h.t, b.x - h.x, b.y - h.y, h, { block: false }); }
     else if (h.kind === 'ring') {
       const gap = dist(b, h) - h.rad - h.w / 2 - b.r;
