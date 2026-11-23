@@ -78,16 +78,17 @@ function drawHUD(p, LW, LH) {
     ctx.fillStyle = q.alive ? '#3fb8b0' : '#ff8a70';
     ctx.fillRect(qx, qy, qw * clamp(q.alive ? q.hp / q.maxHp : q.down ? q.downT / 25 : 0, 0, 1), 5 * u);
   }
-  // bar bos
-  if (L.bossState === 'active' && L.boss && !L.boss.dead) {
-    const b = L.boss, by = base - 46 * u, bbw = Math.min(300 * u, LW * .82), bx = LW / 2 - bbw / 2;
-    txt(BOSS_NAMES[b.type], bx, by - 9 * u, 12 * u, '#e8d9b0', 'left', SERIF, '400');
+  // bar bos (level kembar: ditumpuk, satu bar per bos yang masih hidup)
+  const bosses = L.bossState === 'active' ? aliveBosses() : [];
+  bosses.forEach((b, k) => {
+    const by = base - (46 + k * 28) * u, bbw = Math.min(300 * u, LW * .82), bx = LW / 2 - bbw / 2;
+    txt(BOSS_NAMES[b.type], bx, by - 9 * u, 12 * u, b.p2 && L.bosses.length > 1 ? '#ff9a6a' : '#e8d9b0', 'left', SERIF, '400');
     ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(bx - 2, by - 2, bbw + 4, 9 * u);
     ctx.fillStyle = '#e8d0a0'; ctx.fillRect(bx, by, bbw * b.hpLag / b.maxHp, 5 * u);
     ctx.fillStyle = '#9a1c16'; ctx.fillRect(bx, by, bbw * b.hp / b.maxHp, 5 * u);
-  }
+  });
   // pesan & tutorial
-  let my = base - (L.bossState === 'active' ? 80 : 34) * u;
+  let my = base - (bosses.length ? 80 + (bosses.length - 1) * 28 : 34) * u;
   if (p.msg) { const a = clamp(Math.min(p.msg.t * 6, (p.msg.dur - p.msg.t) * 3), 0, 1); ctx.globalAlpha = a; txt(p.msg.text, LW / 2, my, 13 * u, '#fff1d0'); ctx.globalAlpha = 1; my -= 20 * u; }
   if (p.state === 'down') { txt('TUMBANG — tunggu rekanmu (' + Math.ceil(p.downT) + ')', LW / 2, my, 13 * u, '#ff8a70'); my -= 20 * u; }
   if (p.dead) { txt('Gugur — rekanmu bisa membangkitkanmu di api unggun', LW / 2, my, 12 * u, '#c8b8a8'); my -= 20 * u; }
@@ -172,19 +173,31 @@ function emberBg(dt) {
   }
   ctx.globalAlpha = 1; embers = embers.filter(e => e.t < e.life);
 }
-function menuButtons() {
-  const u = U, LW = H, LH = W;
+// Tombol menu per bingkai pemain. Hanya P1 (bingkai 0) yang memegang kontrol permainan;
+// P2 hanya memilih warna dan melihat keterangan menunggu.
+const TITLE_Y = LH => LH * .55;
+const titleY0 = LH => TITLE_Y(LH) + 52 * U;
+function swatchRow(i, cy) {
+  const r = 11 * U, gap = 30 * U, n = PALETTE.length, cx0 = H / 2 - (n - 1) / 2 * gap;
+  return PALETTE.map((_, k) => ({ id: 'color', k, pi: i, swatch: true, x: cx0 + k * gap - r, y: cy - r, w: r * 2, h: r * 2 }));
+}
+function levelLockText(k) { const n = k + 1 - OPEN_LEVELS - SAVE.cleared.length; return '🔒 tamatkan ' + n + ' level lagi'; }
+function menuButtons(i) {
+  const u = U, LW = H, LH = W, host = i === 0;
   if (G.mode === 'title') {
-    // pemilih level: ◂ [LEVEL n · nama] ▸, titik progres, lalu MULAI
-    const bw = Math.min(300 * u, LW * .86), x0 = LW / 2 - bw / 2, y0 = TITLE_Y(LH) + 52 * u, aw = 46 * u;
+    if (!host) return swatchRow(i, titleY0(LH) + 70 * u);
+    // pemilih level: ◂ [LEVEL n · nama] ▸, titik progres, MULAI, lalu warna
+    const bw = Math.min(300 * u, LW * .86), x0 = LW / 2 - bw / 2, y0 = titleY0(LH), aw = 46 * u, open = isUnlocked(G.sel);
     return [
       { id: 'mode', x: x0, y: y0, w: bw, h: 38 * u, label: G.solo ? 'MODE: SOLO + BOT  ⇄' : 'MODE: 2 PEMAIN  ⇄', small: true },
       { id: 'prev', x: x0, y: y0 + 46 * u, w: aw, h: 50 * u, label: '◂' },
-      { id: 'lvl', x: x0 + aw + 8 * u, y: y0 + 46 * u, w: bw - 2 * aw - 16 * u, h: 50 * u, label: 'LEVEL ' + (G.sel + 1), sub: LEVELS[G.sel].name, done: SAVE.cleared.includes(G.sel) },
+      { id: 'lvl', x: x0 + aw + 8 * u, y: y0 + 46 * u, w: bw - 2 * aw - 16 * u, h: 50 * u, label: 'LEVEL ' + (G.sel + 1), sub: open ? LEVELS[G.sel].name : levelLockText(G.sel), done: SAVE.cleared.includes(G.sel), off: !open },
       { id: 'next', x: x0 + bw - aw, y: y0 + 46 * u, w: aw, h: 50 * u, label: '▸' },
-      { id: 'start', x: x0 + bw * .2, y: y0 + 116 * u, w: bw * .6, h: 44 * u, label: 'MULAI', hl: true },
+      { id: 'start', x: x0 + bw * .2, y: y0 + 116 * u, w: bw * .6, h: 44 * u, label: open ? 'MULAI' : 'TERKUNCI', hl: open, off: !open },
+      ...swatchRow(i, y0 + 198 * u),
     ];
   }
+  if (!host) return [];
   if (G.mode === 'pause') {
     if (G.solo) { // satu pemain: separuh atas layar kosong
       const bw = 120 * u, bh = 44 * u, y = LH * .3 + 30 * u;
@@ -197,33 +210,45 @@ function menuButtons() {
   if (G.mode === 'win' && G.winT > 2) return [{ id: 'title', x: LW / 2 - 70 * u, y: LH * .82, w: 140 * u, h: 44 * u, label: 'KE JUDUL' }];
   return [];
 }
+function drawSwatch(b) {
+  const cx = b.x + b.w / 2, cy = b.y + b.h / 2, r = b.w / 2, mine = SAVE.colors[b.pi] === b.k, other = SAVE.colors[1 - b.pi] === b.k;
+  ctx.globalAlpha = other && !mine ? .35 : 1;
+  ctx.fillStyle = PALETTE[b.k][0]; ctx.beginPath(); ctx.arc(cx, cy, r * (mine ? 1 : .8), 0, TAU); ctx.fill();
+  ctx.globalAlpha = 1;
+  if (mine) { ctx.strokeStyle = '#fff1d0'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(cx, cy, r + 4 * U, 0, TAU); ctx.stroke(); }
+  if (other) txt(G.solo ? 'BOT' : b.pi ? 'P1' : 'P2', cx, cy + r + 9 * U, 8 * U, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '600');
+}
 function drawMenuButtons() {
   for (const i of frames()) inFrame(i, () => {
-    for (const b of menuButtons()) {
+    for (const b of menuButtons(i)) {
+      if (b.swatch) { drawSwatch(b); continue; }
       const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+      ctx.globalAlpha = b.off ? .55 : 1;
       rr(b.x, b.y, b.w, b.h, 6 * U); ctx.fillStyle = b.hl ? 'rgba(96,42,14,.92)' : 'rgba(30,20,16,.85)'; ctx.fill();
       ctx.strokeStyle = b.hl ? '#ffb347' : 'rgba(232,217,176,.6)'; ctx.lineWidth = b.hl ? 2 : 1.5; ctx.stroke();
       if (b.sub) { txt(b.label, cx, cy - 8 * U, 16 * U, '#e8d9b0', 'center', SERIF, '400'); txt(b.sub, cx, cy + 11 * U, 10.5 * U, '#cfc3a8', 'center', SERIF, 'italic 400'); }
       else txt(b.label, cx, cy, (b.small ? 13 : 15) * U, b.hl ? '#ffe2b0' : '#e8d9b0', 'center', b.small ? 'sans-serif' : SERIF, b.small ? '600' : '400');
+      ctx.globalAlpha = 1;
       if (b.done) txt('✓', b.x + b.w - 12 * U, b.y + 12 * U, 11 * U, '#ffb347');
-      if (b.id === 'lvl') { // titik progres: terisi = sudah tamat, cincin = sedang dipilih
+      if (b.id === 'lvl') { // titik progres: terisi = tamat, redup = terkunci, cincin = sedang dipilih
         const n = LEVELS.length, gap = 14 * U, y = b.y + b.h + 10 * U;
         for (let k = 0; k < n; k++) {
           const x = cx + (k - (n - 1) / 2) * gap;
-          ctx.fillStyle = SAVE.cleared.includes(k) ? '#ffb347' : 'rgba(232,217,176,.25)'; ctx.beginPath(); ctx.arc(x, y, 3 * U, 0, TAU); ctx.fill();
+          if (isUnlocked(k)) { ctx.fillStyle = SAVE.cleared.includes(k) ? '#ffb347' : 'rgba(232,217,176,.35)'; ctx.beginPath(); ctx.arc(x, y, 3 * U, 0, TAU); ctx.fill(); }
+          else { ctx.strokeStyle = 'rgba(232,217,176,.3)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 2.6 * U, 0, TAU); ctx.stroke(); }
           if (k === G.sel) { ctx.strokeStyle = '#fff1d0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, 5.5 * U, 0, TAU); ctx.stroke(); }
         }
       }
     }
   });
 }
-const TITLE_Y = LH => LH * .55;
 function pickLevel(d) { G.sel = (G.sel + d + LEVELS.length) % LEVELS.length; }
 function uiTap(q) {
   for (const i of frames()) {
     const f = screenToFrame(i, q);
-    for (const b of menuButtons()) {
+    for (const b of menuButtons(i)) {
       if (f.x >= b.x && f.x <= b.x + b.w && f.y >= b.y && f.y <= b.y + b.h) {
+        if (b.off || (b.swatch && !setColor(b.pi, b.k))) { Snd.fail(); return; }
         Snd.swap();
         if (b.id === 'mode') toggleSolo();
         else if (b.id === 'prev') pickLevel(-1);
@@ -247,16 +272,26 @@ function drawTitle() {
   for (const i of frames()) inFrame(i, (LW, LH) => {
     txt('BARA KEMBAR', LW / 2, TITLE_Y(LH), 34 * U, '#e8d9b0', 'center', SERIF, '400');
     txt(G.solo ? 'satu jiwa, satu bara pendamping' : 'dua jiwa, satu nyala', LW / 2, TITLE_Y(LH) + 28 * U, 13 * U, '#b8a888', 'center', SERIF, 'italic 400');
-    txt(G.solo ? 'Pegang HP tegak • Bot pemanah menjadi rekanmu' : 'Letakkan HP mendatar • P1 & P2 duduk berhadapan', LW / 2, LH * .94, 10.5 * U, 'rgba(220,210,190,.6)', 'center', 'sans-serif', '500');
+    txt(G.solo ? 'Pegang HP tegak • Bot menjadi rekanmu' : 'Letakkan HP mendatar • P1 & P2 duduk berhadapan', LW / 2, LH * .94, 10.5 * U, 'rgba(220,210,190,.6)', 'center', 'sans-serif', '500');
+    const y0 = titleY0(LH);
+    if (i === 0) txt('Warnamu', LW / 2, y0 + 176 * U, 10 * U, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '600');
+    else { // P2: hanya pilih warna & menunggu P1
+      ctx.globalAlpha = .6 + Math.sin(G.t * 3) * .3;
+      txt('Menunggu P1 memilih level…', LW / 2, y0 + 14 * U, 14 * U, '#e8d9b0', 'center', SERIF, 'italic 400');
+      ctx.globalAlpha = 1;
+      txt('Pilih warnamu', LW / 2, y0 + 48 * U, 10 * U, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '600');
+    }
   });
   drawMenuButtons();
 }
+const waitP1 = (LW, LH) => { ctx.globalAlpha = .6 + Math.sin(G.t * 3) * .3; txt('Menunggu P1…', 12 * U + 48 * U, LH / 2 + 64 * U, 13 * U, '#e8d9b0', 'center', SERIF, 'italic 400'); ctx.globalAlpha = 1; };
 function drawPause() {
   baseT(); ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(0, 0, W, H);
   for (const i of frames()) inFrame(i, (LW, LH) => {
     if (G.solo) txt('JEDA', LW / 2, LH * .3, 30 * U, '#e8d9b0', 'center', SERIF, '400');
     else txt('JEDA', 12 * U + 48 * U, LH / 2 + 22 * U, 24 * U, '#e8d9b0', 'center', SERIF, '400');
     drawCallouts(players[i], LW, LH - 226 * U, 1, G.solo); // petunjuk tombol tetap terbaca saat jeda
+    if (i === 1) waitP1(LW, LH); // tombol LANJUT/KE JUDUL hanya di P1
   });
   drawMenuButtons();
 }
@@ -268,6 +303,7 @@ function drawWin() {
     txt('NYALA BERTAHAN', LW / 2, LH * .62, 30 * U, '#ffd27a', 'center', SERIF, '400');
     txt('Kalian menaklukkan semua level. Terima kasih telah bermain!', LW / 2, LH * .62 + 30 * U, 12 * U, '#cfc3a8', 'center', SERIF, 'italic 400');
     ctx.globalAlpha = 1;
+    if (i === 1 && G.winT > 2) txt('Menunggu P1…', LW / 2, LH * .82 + 22 * U, 13 * U, 'rgba(232,217,176,.7)', 'center', SERIF, 'italic 400');
   });
   drawMenuButtons();
 }

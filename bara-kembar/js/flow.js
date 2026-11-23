@@ -2,9 +2,17 @@
 // =====================================================================
 //  ALUR LEVEL: api unggun, kabut, bos, portal
 // =====================================================================
+const bossTitle = () => L.def.title || BOSS_NAMES[L.def.boss];
+const aliveBosses = () => (L.bosses || []).filter(b => !b.dead);
+// salah satu bos kembar tumbang: kembarannya murka (fase 2, lebih cepat)
+function bossFallen(e) {
+  G.slowT = .8; shake(8); Snd.roar();
+  for (const b of aliveBosses()) { b.p2 = true; b.spdMul = Math.max(b.spdMul, 1.3); b.cd = Math.min(b.cd, .6); }
+  banner('', BOSS_NAMES[e.type] + ' tumbang — kembarannya murka!', 2.6, '#ff7a3a', false);
+}
 function bossDefeated(e) {
   L.bossState = 'dead'; L.gateState = 'open'; L.eclipse = 0; G.slowT = 1.4; Snd.music(false); Snd.victory();
-  banner('MUSUH BESAR DITUMBANGKAN', BOSS_NAMES[e.type], 4.5, '#ffd27a');
+  banner('MUSUH BESAR DITUMBANGKAN', bossTitle(), 4.5, '#ffd27a');
   for (const o of L.enemies) if (o.summon && !o.dead) killEnemy(o);
   L.projectiles = L.projectiles.filter(p => p.owner === 'p'); L.hazards = [];
   for (const p of players) if (p.down || p.dead) { if (p.dead) { p.x = e.x + rand(-30, 30); p.y = e.y + rand(-30, 30); resolveCircle(p); } revivePlayer(p, .5); }
@@ -59,9 +67,9 @@ function updateFlow(dt) {
     if (living.length && living.every(p => p.alive && inArena(p))) {
       // pastikan tidak ada yang berdiri di petak gerbang
       if (!players.some(p => !p.dead && L.gates.some(g => Math.abs(p.x - g.x) < T / 2 + p.r && Math.abs(p.y - g.y) < T / 2 + p.r))) {
-        L.gateState = 'sealed'; L.bossState = 'active'; L.boss.state = 'chase'; L.boss.cd = 1.4;
-        banner(BOSS_NAMES[L.boss.type], '', 3.5, '#e8d9b0'); Snd.roar(); Snd.music(true); shake(8);
-        L.boss.face = angTo(L.boss, players.find(p => p.alive));
+        L.gateState = 'sealed'; L.bossState = 'active';
+        L.bosses.forEach((b, k) => { b.state = 'chase'; b.cd = 1.4 + k * .9; b.face = angTo(b, players.find(p => p.alive)); });
+        banner(bossTitle(), '', 3.5, '#e8d9b0'); Snd.roar(); Snd.music(true); shake(8);
       }
     }
   }
@@ -72,7 +80,11 @@ function updateFlow(dt) {
     if (liv.length && liv.every(p => dist(p, L.portal) < 52) && G.fadeDir === 0) {
       Snd.portal();
       if (!SAVE.cleared.includes(L.idx)) { SAVE.cleared.push(L.idx); saveGame(); }
-      fadeTo(() => { if (L.idx + 1 < LEVELS.length) { loadLevel(L.idx + 1); levelIntro(); } else { G.mode = 'win'; G.winT = 0; Snd.victory(); } });
+      fadeTo(() => {
+        if (L.idx + 1 >= LEVELS.length) { G.mode = 'win'; G.winT = 0; Snd.victory(); }
+        else if (isUnlocked(L.idx + 1)) { loadLevel(L.idx + 1); levelIntro(); }
+        else { G.sel = L.idx + 1; G.mode = 'title'; Snd.music(false); } // jaga-jaga: level berikutnya masih terkunci
+      });
     } else if (liv.some(p => dist(p, L.portal) < 52)) for (const p of liv) if (dist(p, L.portal) < 52 && !p.msg) msg(p, 'Kedua pemain harus masuk portal', 1.2);
   }
 }

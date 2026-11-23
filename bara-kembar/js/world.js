@@ -192,11 +192,58 @@ const LEVELS = [
       "#................#...................#",
       "######################################",
     ]
+  },
+  {
+    // dua bos sekaligus: bos dianggap kalah setelah keduanya tumbang
+    name: 'Takhta Kembar', boss: 'ember', bosses: ['ember', 'ash'], title: 'Kembar Bara', dark: .84,
+    floor: [40, 32, 30], wall: [74, 58, 50], fog: '255,200,170',
+    map: [
+      "######################################",
+      "#...........#............#...........#",
+      "#........a..#............#..a........#",
+      "#...g.............S..............g...#",
+      "#....##.....#............#.....##....#",
+      "#...........#............#...........#",
+      "#...........##############...........#",
+      "###.##############################.###",
+      "#...........##############...........#",
+      "#........b..##############..b........#",
+      "#..g.##.....###........###.....##.g..#",
+      "#.......#...###........###...#.......#",
+      "#.a.........###........###.........a.#",
+      "#.................B..................#",
+      "#########.#####........#####.#########",
+      "#...........###........###...........#",
+      "#....g......###........###......g....#",
+      "#...#...#...##############...#...#...#",
+      "#...........##############...........#",
+      "#.........a.##############.a.........#",
+      "#...........##############...........#",
+      "#....................................#",
+      "#..g..#..b..#.....B......#..b..#..g..#",
+      "#....................................#",
+      "#################FFFF#################",
+      "###................................###",
+      "##..................................##",
+      "##......#....................#......##",
+      "##......#....................#......##",
+      "##................X.................##",
+      "##..................................##",
+      "##...........##........##...........##",
+      "##..................................##",
+      "###................................###",
+      "######################################",
+    ]
   }
 ];
-const BOSS_NAMES = { warden: 'Penjaga Gerbang Berkarat', queen: 'Ratu Abu, Sang Penyulut', exec: 'Algojo Rantai Bara', knight: 'Ksatria Gerhana', snuffer: 'Sang Pemadam' };
+const BOSS_NAMES = { warden: 'Penjaga Gerbang Berkarat', queen: 'Ratu Abu, Sang Penyulut', exec: 'Algojo Rantai Bara', knight: 'Ksatria Gerhana', snuffer: 'Sang Pemadam', ember: 'Sang Sulut', ash: 'Sang Abu' };
 
 // ---------- simpanan ----------
 let SAVE = { cleared: [], solo: false };
 try { const s = JSON.parse(localStorage.getItem('barakembar') || 'null'); if (s && Array.isArray(s.cleared)) SAVE = s; } catch (e) { }
+if (!Array.isArray(SAVE.colors)) SAVE.colors = [0, 1]; // indeks PALETTE (player.js) untuk P1 & P2
+// kunci level: OPEN_LEVELS level pertama terbuka; tiap level yang tamat membuka satu level terkunci berikutnya
+const OPEN_LEVELS = 3;
+const unlockedCount = () => Math.min(LEVELS.length, OPEN_LEVELS + SAVE.cleared.length);
+function isUnlocked(k) { return k < unlockedCount() || SAVE.cleared.includes(k); }
 function saveGame() { try { localStorage.setItem('barakembar', JSON.stringify(SAVE)); } catch (e) { } }

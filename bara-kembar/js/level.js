@@ -37,7 +37,12 @@ function loadLevel(idx) {
 }
 function populate() {
   L.enemies = L.spawns.map(s => makeEnemy(s.type, s.x, s.y));
-  if (L.bossState !== 'dead') { L.boss = makeEnemy(L.def.boss, L.bossSpawn.x, L.bossSpawn.y); L.enemies.push(L.boss); }
+  L.bosses = [];
+  if (L.bossState !== 'dead') {
+    const types = L.def.bosses || [L.def.boss]; // level kembar: beberapa bos berdampingan
+    types.forEach((ty, k) => { const b = makeEnemy(ty, L.bossSpawn.x + (k - (types.length - 1) / 2) * 90, L.bossSpawn.y); L.bosses.push(b); L.enemies.push(b); });
+    L.boss = L.bosses[0];
+  }
   L.projectiles = []; L.hazards = [];
 }
 function placePlayers(c, full) {

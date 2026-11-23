@@ -6,7 +6,7 @@
 const G = { mode: 'title', t: 0, banners: [], hitStop: 0, slowT: 0, shake: 0, fade: 0, fadeDir: 0, fadeCb: null, overT: 0, hintT: 0, beatT: 0, beatN: 0, winT: 0, fx: [], solo: !!SAVE.solo };
 // bingkai baca yang ditampilkan (HUD, kontrol, menu): mode solo hanya P1
 // level terpilih di layar judul: level pertama yang belum tamat
-G.sel = Math.max(0, LEVELS.findIndex((_, k) => !SAVE.cleared.includes(k)));
+G.sel = Math.max(0, LEVELS.findIndex((_, k) => !SAVE.cleared.includes(k) && isUnlocked(k)));
 function frames() { return G.solo ? [0] : [0, 1]; }
 function toggleSolo() { G.solo = !G.solo; SAVE.solo = G.solo; saveGame(); }
 let L = null;

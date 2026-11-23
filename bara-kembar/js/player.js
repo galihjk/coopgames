@@ -28,6 +28,30 @@ class Player {
 }
 players.push(new Player(0), new Player(1));
 
+// ---------- warna pemain (dipilih di layar judul, tersimpan di SAVE.colors) ----------
+const PALETTE = [
+  ['#f2ad4e', '242,173,78'],   // jingga bara
+  ['#62d6cf', '98,214,207'],   // toska
+  ['#ff6b6b', '255,107,107'],  // merah
+  ['#86d66a', '134,214,106'],  // hijau
+  ['#b98aff', '185,138,255'],  // ungu
+  ['#5aa8ff', '90,168,255'],   // biru
+  ['#ff8ad0', '255,138,208'],  // merah muda
+  ['#eeeeee', '238,238,238'],  // putih
+];
+function applyColors() {
+  const c = SAVE.colors;
+  if (c[0] === c[1]) c[1] = (c[0] + 1) % PALETTE.length; // dua pemain tidak boleh berwarna sama
+  players.forEach((p, i) => { [p.col, p.glow] = PALETTE[c[i] % PALETTE.length]; });
+}
+// pilih warna; false kalau warna itu sedang dipakai rekan (di mode solo, bot otomatis mengalah)
+function setColor(i, k) {
+  const c = SAVE.colors, o = 1 - i;
+  if (c[o] === k) { if (!G.solo) return false; c[o] = c[i]; }
+  c[i] = k; applyColors(); saveGame(); return true;
+}
+applyColors();
+
 function sepVal(a, b) { const dx = (a.x - b.x) / LEASH.x, dy = (a.y - b.y) / LEASH.y; return dx * dx + dy * dy; }
 function movePlayer(p, dx, dy) {
   const q = players[1 - p.i];

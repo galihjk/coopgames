@@ -254,6 +254,24 @@ function drawEnemy(e) {
       ctx.strokeStyle = glow; ctx.lineWidth = 1.6; line(3.5, 0, 6, 0);
       ctx.strokeStyle = e.p2 ? '#a070ff' : '#b84a3a'; ctx.lineWidth = 2.2; line(-1, 0, -8, Math.sin(G.t * 5) * 1.5);
     };
+  } else if (e.type === 'ember') { // Sang Sulut: dua belati membara, rambut api
+    const hot = e.p2 ? '#ffd27a' : '#ff9a4a';
+    o.extra = () => {
+      const a = st === 'stag' || st === 'parried' ? 2.6 : wa;
+      for (const [[hx, hy], g] of [[o.armR, a], [o.armL, -.5]]) {
+        ctx.strokeStyle = hot; ctx.lineWidth = 2; line(hx, hy, hx + Math.cos(g) * 13, hy + Math.sin(g) * 13);
+        ctx.globalAlpha = .35; ctx.lineWidth = 5; line(hx, hy, hx + Math.cos(g) * 13, hy + Math.sin(g) * 13); ctx.globalAlpha = 1;
+      }
+    };
+    o.top = () => { ctx.strokeStyle = hot; ctx.lineWidth = 1.6; for (let k = -1; k <= 1; k++) line(-1, k * 3, -7 - Math.abs(Math.sin(G.t * 9 + k)) * 3, k * 4); };
+  } else if (e.type === 'ash') { // Sang Abu: tongkat, jubah kelabu, melayang rendah
+    o.stride = 0; o.armL = [8, -9]; o.z = 4 + Math.sin(G.t * 2.5 + 1) * 2.5;
+    o.under = () => { ctx.fillStyle = 'rgba(40,40,48,.8)'; ctx.beginPath(); ctx.arc(-2, 0, 10, 0, TAU); ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 1.2; ctx.stroke(); ctx.lineWidth = e.lw; };
+    o.extra = () => {
+      const [hx, hy] = o.armR; ctx.strokeStyle = '#6a6470'; ctx.lineWidth = 2.4; line(hx - 8, hy, hx + 11, hy);
+      ctx.fillStyle = e.p2 ? '#ffd27a' : '#d8e0ea'; ctx.beginPath(); ctx.arc(hx + 12, hy, 3 + Math.sin(G.t * 8) * .8, 0, TAU); ctx.fill();
+    };
+    o.top = () => { ctx.fillStyle = '#2a2a32'; ctx.beginPath(); ctx.arc(.5, 0, 6, Math.PI * .5, Math.PI * 1.5); ctx.fill(); }; // tudung
   } else if (e.type === 'snuffer') {
     const beam = e.atk && e.atk.def === DEF.vBeam && e.atk.ph !== 'r';
     o.stride = 0; o.z = 8 + Math.sin(G.t * 2) * 3;              // melayang
@@ -421,7 +439,7 @@ function drawLighting() {
   for (const pr of L.projectiles) if (pr.kind === 'orb') light(pr.x, pr.y, 70, .8);
   for (const h of L.hazards) if (h.kind === 'pillar') light(h.x, h.y, h.done ? 140 : 60, h.done ? 1 : .4);
   if (L.portal) light(L.portal.x, L.portal.y, 200);
-  if (L.bossState === 'active') { light(L.bossSpawn.x, L.bossSpawn.y, 520, .55); if (L.boss && !L.boss.dead) light(L.boss.x, L.boss.y, 160, .6); }
+  if (L.bossState === 'active') { light(L.bossSpawn.x, L.bossSpawn.y, 520, .55); for (const b of aliveBosses()) light(b.x, b.y, 160, .6); }
   if (L.gateState !== 'open') for (const g of L.gates) light(g.x, g.y, 70, .5);
   baseT(); ctx.drawImage(lightCv, 0, 0, W, H);
   // cahaya hangat aditif

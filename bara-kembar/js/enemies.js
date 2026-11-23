@@ -11,6 +11,8 @@ const ETYPE = {
   exec: { hp: 920, r: 24, speed: 66, poise: 170, aggro: 999, col: '#9fb0c4', sc: 2.3, lw: 4.0, boss: true },
   knight: { hp: 800, r: 15, speed: 92, poise: 115, aggro: 999, col: '#d8c8a0', sc: 1.75, lw: 3.2, boss: true },
   snuffer: { hp: 1100, r: 21, speed: 58, poise: 200, aggro: 999, col: '#a898e8', sc: 2.15, lw: 3.6, boss: true },
+  ember: { hp: 620, r: 16, speed: 84, poise: 110, aggro: 999, col: '#ff8a4a', sc: 1.8, lw: 3.2, boss: true }, // kembar: Sang Sulut (dekat)
+  ash: { hp: 560, r: 16, speed: 62, poise: 100, aggro: 999, col: '#b8c4d0', sc: 1.8, lw: 3.0, boss: true },   // kembar: Sang Abu (jauh)
   shade: { hp: 60, r: 11, speed: 100, poise: 22, aggro: 999, col: '#9a88ff', sc: 1.1, lw: 2.2 }, // bayangan panggilan Sang Pemadam
 };
 function makeEnemy(type, x, y) {
@@ -57,7 +59,7 @@ function killEnemy(e) {
   e.dead = true; e.deadT = 0; e.hp = 0; e.atk = null; Snd.enemyDie();
   for (let k = 0; k < 26; k++) part(e.x, e.y, rand(-80, 80), rand(-80, 80), rand(.5, 1.3), '#2a1d25', rand(2, 4));
   for (let k = 0; k < 12; k++) part(e.x, e.y, rand(-30, 30), rand(-70, -20), rand(.6, 1.4), '#ff9a4a', 2, true);
-  if (e.boss) bossDefeated(e);
+  if (e.boss) { if (L.bosses.every(b => b.dead)) bossDefeated(e); else bossFallen(e); }
 }
 
 // ---------- serangan musuh (data + hook) ----------
@@ -473,6 +475,29 @@ const AI = {
   }
 };
 AI.shade = AI.grunt; // bayangan bertarung seperti prajurit, tapi lebih cepat
+// ---- Kembar Bara (level 6): dua bos sekaligus, saling melengkapi ----
+AI.ember = (e, t, dt) => { // Sang Sulut: menerjang, menebas, berputar
+  const d = dist(e, t), a = angTo(e, t);
+  e.face = turnTo(e.face, a, 5 * dt);
+  if (e.cd <= 0) {
+    const r = Math.random();
+    if (d < 95) { startAtk(e, r < .6 ? DEF.k1 : DEF.xSpin, t); return; }
+    startAtk(e, r < .55 ? DEF.wLeap : DEF.kDash, t); return;
+  }
+  if (d > 70) { moveCircle(e, Math.cos(a) * e.speed * e.spdMul * dt, Math.sin(a) * e.speed * e.spdMul * dt); e.walk += e.speed * dt * .1; }
+};
+AI.ash = (e, t, dt) => { // Sang Abu: menjaga jarak, menembak, menghujani pilar
+  const d = dist(e, t), a = angTo(e, t);
+  e.face = turnTo(e.face, a, 5 * dt);
+  if (e.cd <= 0) {
+    const r = Math.random();
+    if (d < 110) { startAtk(e, r < .6 ? DEF.qNova : DEF.qTele, t); return; }
+    startAtk(e, r < .4 ? DEF.qVolley : r < .65 ? DEF.vOrbs : r < .9 ? DEF.qPillars : DEF.qTele, t); return;
+  }
+  const mvA = d < 160 ? a + Math.PI : d > 300 ? a : a + e.strafe * Math.PI / 2;
+  if (moveCircle(e, Math.cos(mvA) * e.speed * e.spdMul * dt, Math.sin(mvA) * e.speed * e.spdMul * dt)) e.strafe *= -1;
+  if (Math.random() < .006) e.strafe *= -1;
+};
 function updateEnemy(e, dt) {
   e.flash -= dt; e.showHp -= dt;
   e.hpLag = e.hpLag > e.hp ? Math.max(e.hp, e.hpLag - e.maxHp * .4 * dt) : e.hp;
