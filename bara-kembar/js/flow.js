@@ -1,0 +1,93 @@
+'use strict';
+// =====================================================================
+//  ALUR LEVEL: api unggun, kabut, bos, portal
+// =====================================================================
+function bossDefeated(e) {
+  L.bossState = 'dead'; L.gateState = 'open'; G.slowT = 1.4; Snd.music(false); Snd.victory();
+  banner('MUSUH BESAR DITUMBANGKAN', BOSS_NAMES[e.type], 4.5, '#ffd27a');
+  for (const o of L.enemies) if (o.summon && !o.dead) killEnemy(o);
+  L.projectiles = L.projectiles.filter(p => p.owner === 'p'); L.hazards = [];
+  for (const p of players) if (p.down || p.dead) { if (p.dead) { p.x = e.x + rand(-30, 30); p.y = e.y + rand(-30, 30); resolveCircle(p); } revivePlayer(p, .5); }
+  setTimeout(() => { if (L && L.bossState === 'dead') { L.portal = { x: L.bossSpawn.x, y: L.bossSpawn.y, t: 0 }; Snd.portal(); } }, 2200);
+}
+function respawnAll() {
+  L.decals = []; L.particles = [];
+  if (L.bossState !== 'dead') { L.bossState = 'dormant'; L.gateState = 'fog'; }
+  populate();
+  placePlayers(L.checkpoint, true);
+  G.mode = 'play'; Snd.music(false);
+  cam.x = L.checkpoint.x; cam.y = L.checkpoint.y;
+  banner('', 'Bangkit kembali di api unggun', 2.2, '#e8d9b0', false);
+}
+function updateFlow(dt) {
+  // revive
+  for (const p of players) {
+    if (!p.down) continue;
+    const q = players[1 - p.i];
+    p.downT -= dt;
+    if (q.alive && dist(p, q) < 46) { p.revT += dt; if (Math.random() < .3) part(p.x + rand(-8, 8), p.y + rand(-8, 8), 0, -30, .6, '#fff1c0', 2, true); }
+    else p.revT = Math.max(0, p.revT - dt * .5);
+    if (p.revT >= 2.2) { revivePlayer(p, .4); msg(q, 'Rekanmu bangkit!', 1.5); }
+    else if (p.downT <= 0 && G.mode === 'play') {
+      p.down = false; p.dead = true; p.state = 'dead';
+      msg(q, 'Rekanmu gugur. Capai api unggun atau kalahkan bos untuk membangkitkannya', 4);
+    }
+  }
+  if (G.mode === 'play' && !players.some(p => p.alive)) gameOver();
+  // api unggun
+  for (const b of L.bonfires) {
+    for (const p of players) {
+      if (!p.alive || dist(p, b) > 40) continue;
+      if (!b.lit) {
+        b.lit = true; L.checkpoint = b; Snd.bonfire(); banner('API UNGGUN MENYALA', 'Titik bangkit tersimpan', 3, '#ffb35c');
+        for (const q of players) { if (q.dead) { q.x = b.x + rand(-20, 20); q.y = b.y + 20; resolveCircle(q); revivePlayer(q, 1); } if (q.alive) { q.hp = q.maxHp; q.flasks = MAX_FLASK; } }
+        for (let k = 0; k < 40; k++) part(b.x, b.y, rand(-50, 50), rand(-120, -20), rand(.5, 1.2), '#ffb35c', 3, true);
+      } else {
+        const q = players[1 - p.i];
+        if (q.dead) { q.x = b.x + rand(-20, 20); q.y = b.y + 20; resolveCircle(q); revivePlayer(q, 1); msg(p, 'Api unggun membangkitkan rekanmu', 2); }
+      }
+    }
+  }
+  // kabut gerbang
+  const nearGate = (p, r) => L.gates.some(g => dist(p, g) < r);
+  const living = players.filter(p => !p.dead);
+  if (L.gateState === 'fog') {
+    const near = living.filter(p => p.alive && nearGate(p, 85));
+    if (living.length && near.length === living.length) { L.gateState = 'open'; Snd.fog(); }
+    else if (near.length) { for (const p of near) if (!p.msg) msg(p, 'Tunggu rekanmu di depan kabut', 1.2); }
+  } else if (L.gateState === 'open' && L.bossState === 'dormant') {
+    if (living.length && living.every(p => p.alive && inArena(p))) {
+      // pastikan tidak ada yang berdiri di petak gerbang
+      if (!players.some(p => !p.dead && L.gates.some(g => Math.abs(p.x - g.x) < T / 2 + p.r && Math.abs(p.y - g.y) < T / 2 + p.r))) {
+        L.gateState = 'sealed'; L.bossState = 'active'; L.boss.state = 'chase'; L.boss.cd = 1.4;
+        banner(BOSS_NAMES[L.boss.type], '', 3.5, '#e8d9b0'); Snd.roar(); Snd.music(true); shake(8);
+        L.boss.face = angTo(L.boss, players.find(p => p.alive));
+      }
+    }
+  }
+  // portal
+  if (L.portal) {
+    L.portal.t += dt;
+    const liv = players.filter(p => p.alive);
+    if (liv.length && liv.every(p => dist(p, L.portal) < 52) && G.fadeDir === 0) {
+      Snd.portal();
+      if (!SAVE.cleared.includes(L.idx)) { SAVE.cleared.push(L.idx); saveGame(); }
+      fadeTo(() => { if (L.idx + 1 < LEVELS.length) { loadLevel(L.idx + 1); levelIntro(); } else { G.mode = 'win'; G.winT = 0; Snd.victory(); } });
+    } else if (liv.some(p => dist(p, L.portal) < 52)) for (const p of liv) if (dist(p, L.portal) < 52 && !p.msg) msg(p, 'Kedua pemain harus masuk portal', 1.2);
+  }
+}
+function fadeTo(cb) { G.fadeDir = 1; G.fadeCb = cb; }
+function levelIntro() { banner('LEVEL ' + (L.idx + 1), L.def.name, 3.2, '#e8d9b0'); }
+
+function separate() {
+  const all = players.filter(p => p.alive && p.state !== 'roll').concat(L.enemies.filter(e => !e.dead && !e.air && !(e.inv && e.type === 'queen')));
+  for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
+    const a = all[i], b = all[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy), m = a.r + b.r;
+    if (d < m && d > .01) {
+      const o = (m - d) / d; const wa = a.maxPoise ? (a.boss ? .1 : .4) : .6, wb = b.maxPoise ? (b.boss ? .1 : .4) : .6;
+      const s = wa + wb;
+      a.x -= dx * o * wa / s; a.y -= dy * o * wa / s; b.x += dx * o * wb / s; b.y += dy * o * wb / s;
+      resolveCircle(a); resolveCircle(b);
+    }
+  }
+}
