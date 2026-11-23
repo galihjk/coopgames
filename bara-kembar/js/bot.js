@@ -11,14 +11,14 @@
 //    Makin rendah, makin sering bot telat/terlalu cepat menghindar,
 //    meleset, bengong, dan lupa menyambung kombo.
 // =====================================================================
-const SKILL_MIN = .3, SKILL_MAX = .8;   // rentang undian kemampuan (1 = sempurna)
+// rentang undian kemampuan (1 = sempurna): RULE.botSkill() di world.js (Santai lebih tinggi)
 const SKILL_EVERY = [10, 25];           // kemampuan diundi ulang tiap 10–25 detik
 const WANT_COMPLEMENT = .8;             // peluang memilih senjata pelengkap rekan
 
 let brain = null;
 function resetBot() {
   brain = {
-    skill: rand(SKILL_MIN, SKILL_MAX), skillT: rand(SKILL_EVERY[0], SKILL_EVERY[1]), seen: new WeakMap(),
+    skill: rand(...RULE.botSkill()), skillT: rand(SKILL_EVERY[0], SKILL_EVERY[1]), seen: new WeakMap(),
     goalKey: '', field: null, fieldT: 0,
     humanWeapon: null, want: 'bow', swapT: 0, swapTap: false,
     healHold: false, rollCd: 0, blockT: 0, blockSrc: null, daze: 0, recover: false,
@@ -85,7 +85,7 @@ function botThreat(b) {
   const pad = b.r + 10;
   for (const e of L.enemies) {
     if (e.dead || e.state !== 'atk' || !e.atk) continue;
-    const a = e.atk, d = a.def, sp = e.spdMul;
+    const a = e.atk, d = a.def, sp = tempo(e);
     const left = a.ph === 'w' ? d.wind / sp - a.t : a.ph === 'a' ? 0 : -1;
     if (left < 0 || left > 1.2) continue;
     const ox = b.x - e.x, oy = b.y - e.y;
@@ -169,7 +169,7 @@ function botWarp(b, h) {
 // ---------- otak per frame (dipanggil dari update, sebelum updatePlayer) ----------
 function botUpdate(b, h, dt) {
   for (const k of ['fieldT', 'rollCd', 'strafeT', 'shotCd', 'swapT', 'blockT', 'daze', 'skillT']) brain[k] -= dt;
-  if (brain.skillT <= 0) { brain.skill = rand(SKILL_MIN, SKILL_MAX); brain.skillT = rand(SKILL_EVERY[0], SKILL_EVERY[1]); }
+  if (brain.skillT <= 0) { brain.skill = rand(...RULE.botSkill()); brain.skillT = rand(SKILL_EVERY[0], SKILL_EVERY[1]); }
   const inp = IN[b.i], s = brain.skill;
   inp.h[0] = inp.h[1] = inp.h[2] = 0; inp.mx = 0; inp.my = 0;
   if (b.state === 'shoot_r' && brain.prevState !== 'shoot_r') brain.shotCd = rand(.05, .8) * (1.2 - s); // jeda antar tembakan

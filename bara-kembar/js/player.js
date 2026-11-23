@@ -8,7 +8,7 @@ const COMBO = [
   { wind: .15, act: .10, rec: .48, dmg: 24, cost: 22, range: 52, arc: 2.1, lunge: 120, sw: [1.2, -1.2] },
   { wind: .32, act: .13, rec: .70, dmg: 38, cost: 28, range: 58, arc: 2.8, lunge: 170, sw: [-1.6, 1.6], heavy: true },
 ];
-const CHAIN_WIN = .24, PARRY_WIN = .2, HEAL_AMT = 45, MAX_FLASK = 3;
+const CHAIN_WIN = .24, HEAL_AMT = 45; // jendela tangkis & jumlah ramuan: lihat RULE (world.js)
 // Arah hadap langsung mengikuti joystick (tanpa waktu berputar), kecuali saat mengayun pedang,
 // berguling, terhuyung, atau tumbang. Saat menahan tameng/busur/ramuan joystick punya dua zona:
 // dorongan ringan (< AIM_ONLY) hanya membidik di tempat, dorongan penuh = melangkah pelan (HOLD_SPD).
@@ -22,7 +22,7 @@ class Player {
   }
   spawn(x, y) {
     Object.assign(this, {
-      x, y, kx: 0, ky: 0, hp: this.maxHp, hpLag: this.maxHp, stam: this.maxStam, stamCd: 0, flasks: MAX_FLASK,
+      x, y, kx: 0, ky: 0, hp: this.maxHp, hpLag: this.maxHp, stam: this.maxStam, stamCd: 0, flasks: RULE.flasks(),
       state: 'free', st: 0, face: this.i ? Math.PI : 0, vface: this.i ? Math.PI : 0, combo: 0, chainLock: false, hitSet: null, blockT: 0, drawT: 0,
       relPending: false, iframe: 1, flash: 0, down: false, dead: false, downT: 0, revT: 0, b3T: -1, healDone: false,
       rollA: 0, walk: 0, moving: 0, stagDur: 0, msg: null, swapHint: 0, parryFx: 0
@@ -100,7 +100,7 @@ function startRoll(p, mx, my, m) {
 function fireArrow(p) {
   const ch = clamp((p.drawT - .28) / .62, 0, 1), full = ch >= 1;
   const ang = aimAssist(p, p.face, .45, 460); p.face = ang;
-  p.stam = Math.max(0, p.stam - (8 + 8 * ch)); p.stamCd = .55;
+  p.stam = Math.max(0, p.stam - (8 + 8 * ch)); p.stamCd = .55; L.stats.shots[p.i]++;
   spawnProj('p', p.x + Math.cos(ang) * 16, p.y + Math.sin(ang) * 16, ang, full ? 720 : 470 + 150 * ch, 10 + 20 * ch, { kind: 'arrow', pierce: full ? 3 : 0, life: 1.1, r: 4, full, src: p });
   full ? Snd.bowFull() : Snd.bow();
   p.state = 'shoot_r'; p.st = 0;
@@ -147,7 +147,14 @@ function updatePlayer(p, dt) {
   switch (p.state) {
     case 'free': {
       walk(SPD);
-      if (pressed(p.i, 0)) { if (p.weapon === 'sword') startAttack(p, 0); else if (p.stam > 0) { p.state = 'draw'; p.st = 0; p.drawT = 0; p.relPending = false; } else { Snd.fail(); msg(p, 'Stamina habis', .8); } }
+      const fresh = pressed(p.i, 0);
+      if (p.weapon === 'sword' && fresh) startAttack(p, 0);
+      // busur: tombol panah yang masih DITAHAN (mis. sejak berguling) langsung membidik begitu bebas,
+      // seperti tameng; tanpa stamina → menunggu diam-diam, peringatan hanya untuk tekanan baru
+      else if (p.weapon === 'bow' && (fresh || inp.h[0])) {
+        if (p.stam > 0) { p.state = 'draw'; p.st = 0; p.drawT = 0; p.relPending = false; }
+        else if (fresh) { Snd.fail(); msg(p, 'Stamina habis', .8); }
+      }
       else if (p.weapon === 'sword' && inp.h[1]) { p.state = 'block'; p.st = 0; p.blockT = 0; }
       else if (p.weapon === 'bow' && pressed(p.i, 1)) startRoll(p, inp.mx, inp.my, m);
       // tombol 3: ketuk = ganti senjata, tahan = minum ramuan
@@ -239,13 +246,15 @@ function updatePlayer(p, dt) {
 
 function hurtPlayer(p, dmg, src, o = {}) {
   if (!p.alive || p.iframe > 0) return 'miss';
+  dmg *= RULE.dmgTaken();
   const a = Math.atan2(src.y - p.y, src.x - p.x);
   const front = Math.abs(angDiff(p.face, a)) < 1.3;
   if (p.state === 'block' && front && !o.unblockable) {
-    if (p.blockT < PARRY_WIN && o.parryable) {
+    if (p.blockT < RULE.parryWin() && o.parryable) {
       Snd.parry(); hitStop(.13); shake(6); vib(30); p.parryFx = .4;
       sparks(p.x + Math.cos(a) * 14, p.y + Math.sin(a) * 14, 22, '#fff6c8');
       p.stam = Math.min(p.maxStam, p.stam + 10);
+      L.stats.parries[p.i]++;
       return 'parry';
     }
     Snd.block(); p.stam -= dmg * (o.guard || 1.3); p.stamCd = .8; p.hp -= dmg * .08;
@@ -265,9 +274,9 @@ function hurtPlayer(p, dmg, src, o = {}) {
   return 'hit';
 }
 function downPlayer(p) {
-  p.hp = 0; Snd.die();
+  p.hp = 0; Snd.die(); L.stats.downs[p.i]++;
   const q = players[1 - p.i];
-  if (q.alive) { p.state = 'down'; p.down = true; p.downT = 25; p.revT = 0; msg(q, 'Rekanmu tumbang! Dekati untuk membangkitkan', 3); }
+  if (q.alive) { p.state = 'down'; p.down = true; p.downT = RULE.downT(); p.revT = 0; msg(q, 'Rekanmu tumbang! Dekati untuk membangkitkan', 3); }
   else { p.state = 'down'; p.down = true; p.downT = 0; gameOver(); }
 }
 function revivePlayer(p, hpFrac) {
@@ -277,5 +286,5 @@ function revivePlayer(p, hpFrac) {
 }
 function gameOver() {
   if (G.mode === 'over') return;
-  G.mode = 'over'; G.overT = 0; Snd.over(); Snd.music(false);
+  G.mode = 'over'; G.overT = 0; L.stats.overs++; Snd.over(); Snd.music(false);
 }

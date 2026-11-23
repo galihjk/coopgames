@@ -47,8 +47,8 @@ function updateFlow(dt) {
     for (const p of players) {
       if (!p.alive || dist(p, b) > 40) continue;
       if (!b.lit) {
-        b.lit = true; L.checkpoint = b; Snd.bonfire(); banner('API UNGGUN MENYALA', 'Titik bangkit tersimpan', 3, '#ffb35c');
-        for (const q of players) { if (q.dead) { q.x = b.x + rand(-20, 20); q.y = b.y + 20; resolveCircle(q); revivePlayer(q, 1); } if (q.alive) { q.hp = q.maxHp; q.flasks = MAX_FLASK; } }
+        b.lit = true; L.checkpoint = b; L.stats.bonfires++; Snd.bonfire(); banner('API UNGGUN MENYALA', 'Titik bangkit tersimpan', 3, '#ffb35c');
+        for (const q of players) { if (q.dead) { q.x = b.x + rand(-20, 20); q.y = b.y + 20; resolveCircle(q); revivePlayer(q, 1); } if (q.alive) { q.hp = q.maxHp; q.flasks = RULE.flasks(); } }
         for (let k = 0; k < 40; k++) part(b.x, b.y, rand(-50, 50), rand(-120, -20), rand(.5, 1.2), '#ffb35c', 3, true);
       } else {
         const q = players[1 - p.i];
@@ -79,17 +79,31 @@ function updateFlow(dt) {
     const liv = players.filter(p => p.alive);
     if (liv.length && liv.every(p => dist(p, L.portal) < 52) && G.fadeDir === 0) {
       Snd.portal();
-      if (!SAVE.cleared.includes(L.idx)) { SAVE.cleared.push(L.idx); saveGame(); }
-      fadeTo(() => {
-        if (L.idx + 1 >= LEVELS.length) { G.mode = 'win'; G.winT = 0; Snd.victory(); }
-        else if (isUnlocked(L.idx + 1)) { loadLevel(L.idx + 1); levelIntro(); }
-        else { G.sel = L.idx + 1; G.mode = 'title'; Snd.music(false); } // jaga-jaga: level berikutnya masih terkunci
-      });
+      levelCleared();
     } else if (liv.some(p => dist(p, L.portal) < 52)) for (const p of liv) if (dist(p, L.portal) < 52 && !p.msg) msg(p, 'Kedua pemain harus masuk portal', 1.2);
   }
 }
 function fadeTo(cb) { G.fadeDir = 1; G.fadeCb = cb; }
-function levelIntro() { banner('LEVEL ' + (L.idx + 1), L.def.name, 3.2, '#e8d9b0'); }
+// level tamat: simpan progres & rekor, lalu tampilkan ringkasan statistik (lanjut lewat tombol P1)
+function levelCleared() {
+  const idx = L.idx, s = L.stats, prev = SAVE.best[idx];
+  const unlockedBefore = unlockedCount();
+  if (!SAVE.cleared.includes(idx)) SAVE.cleared.push(idx);
+  if (!isEasy() && !SAVE.clearedNormal.includes(idx)) SAVE.clearedNormal.push(idx);
+  const record = prev == null || s.t < prev; if (record) SAVE.best[idx] = s.t;
+  saveGame();
+  G.clear = { idx, s, prev, record, easy: isEasy(), newUnlock: unlockedCount() > unlockedBefore ? unlockedCount() - 1 : -1 };
+  fadeTo(() => { G.mode = 'clear'; G.clearT = 0; Snd.music(false); });
+}
+function continueAfterClear() {
+  const next = G.clear.idx + 1;
+  fadeTo(() => {
+    if (next >= LEVELS.length) { G.mode = 'win'; G.winT = 0; Snd.victory(); }
+    else if (isUnlocked(next)) { loadLevel(next); G.mode = 'play'; levelIntro(); }
+    else { G.sel = next; G.mode = 'title'; } // jaga-jaga: level berikutnya masih terkunci
+  });
+}
+function levelIntro() { banner('LEVEL ' + (L.idx + 1), L.def.name + (isEasy() ? '  ·  Santai' : ''), 3.2, '#e8d9b0'); }
 
 function separate() {
   const all = players.filter(p => p.alive && p.state !== 'roll').concat(L.enemies.filter(e => !e.dead && !e.air && !(e.inv && e.type === 'queen')));

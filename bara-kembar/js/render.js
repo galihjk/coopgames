@@ -109,7 +109,7 @@ function drawPlayer(p) {
     const k = p.revT / 2.2;
     ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(p.x, p.y, 24, 0, TAU); ctx.stroke();
     ctx.strokeStyle = '#fff1c0'; ctx.beginPath(); ctx.arc(p.x, p.y, 24, -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.stroke();
-    ctx.strokeStyle = `rgba(255,80,60,.8)`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, 29, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(p.downT / 25, 0, 1)); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,80,60,.8)`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, 29, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(p.downT / RULE.downT(), 0, 1)); ctx.stroke();
     return;
   }
   if (p.state === 'roll') { o.roll = clamp(p.st / .48, 0, 1); drawStick(o); return; } // .48 = durasi guling (player.js)
@@ -149,7 +149,7 @@ function drawPlayer(p) {
         ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.arc(hx + 1, hy, 3, 0, TAU); ctx.fill();
       }
       // tameng
-      const par = blocking && p.blockT < PARRY_WIN;
+      const par = blocking && p.blockT < RULE.parryWin();
       ctx.strokeStyle = par ? '#fffbe0' : blocking ? '#c9b58a' : '#8a7a5a'; ctx.lineWidth = blocking ? 4.5 : 3.5;
       ctx.beginPath();
       if (blocking) ctx.arc(0, 0, 13, -.85, .85); else ctx.arc(0, 0, 10, -1.75, -.85);
@@ -220,7 +220,7 @@ function drawEnemy(e) {
   }
   const windup = e.atk && e.atk.ph === 'w';
   let col = e.flash > 0 ? '#ffffff' : e.col;
-  if (windup && Math.floor(G.t * 14) % 2 === 0 && e.atk.t > (e.atk.def.wind / e.spdMul) * .5) col = '#ff6a50';
+  if (windup && Math.floor(G.t * 14) % 2 === 0 && e.atk.t > (e.atk.def.wind / tempo(e)) * .5) col = '#ff6a50';
   if (e.boss && L.bossState === 'dormant') col = '#6a645c';
   const wa = weaponAngle(e);
   const hand = [Math.cos(wa) * 11, Math.sin(wa) * 11];
@@ -418,6 +418,7 @@ function render() {
   baseT(); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
   if (G.mode === 'title') { drawTitle(); drawFade(); return; }
   if (G.mode === 'win') { drawWin(); drawFade(); return; }
+  if (G.mode === 'clear') { drawClear(); drawFade(); return; }
   const shx = (Math.random() - .5) * G.shake * 2, shy = (Math.random() - .5) * G.shake * 2;
   worldT(shx, shy);
   ctx.drawImage(L.cv, 0, 0);
@@ -463,7 +464,7 @@ function render() {
     if (e.dead) continue;
     if (e.state === 'atk' && e.atk.def.tele) {
       const a = e.atk;
-      if (a.ph === 'w') a.def.tele(e, a, clamp(a.t / (a.def.wind / e.spdMul), 0, 1));
+      if (a.ph === 'w') a.def.tele(e, a, clamp(a.t / (a.def.wind / tempo(e)), 0, 1));
       else if (a.ph === 'a' && a.def.teleAct) a.def.teleAct(e, a);
     }
     if (!e.boss && e.showHp > 0 && e.hp < e.maxHp) {

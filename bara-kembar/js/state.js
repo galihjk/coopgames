@@ -7,6 +7,8 @@ const G = { mode: 'title', t: 0, banners: [], hitStop: 0, slowT: 0, shake: 0, fa
 // bingkai baca yang ditampilkan (HUD, kontrol, menu): mode solo hanya P1
 // level terpilih di layar judul: level pertama yang belum tamat
 G.sel = Math.max(0, LEVELS.findIndex((_, k) => !SAVE.cleared.includes(k) && isUnlocked(k)));
+// statistik level berjalan, per pemain [P1, P2/bot]
+function newStats() { return { t: 0, overs: 0, bonfires: 0, downs: [0, 0], parries: [0, 0], dmg: [0, 0], kills: [0, 0], shots: [0, 0], hits: [0, 0] }; }
 function frames() { return G.solo ? [0] : [0, 1]; }
 function toggleSolo() { G.solo = !G.solo; SAVE.solo = G.solo; saveGame(); }
 let L = null;

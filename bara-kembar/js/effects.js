@@ -17,7 +17,9 @@ function updateProj(dt) {
       for (const e of targetables()) {
         if (pr.hit.has(e) || e.air) continue;
         if (Math.hypot(e.x - pr.x, e.y - pr.y) < e.r + pr.r) {
-          pr.hit.add(e); hurtEnemy(e, pr.dmg, { x: pr.x - pr.vx * .05, y: pr.y - pr.vy * .05 }, { poise: pr.reflected ? 2 : .8 });
+          const by = pr.by || (pr.src instanceof Player ? pr.src : null);
+          if (by && !pr.scored && !e.shield) { pr.scored = true; L.stats.hits[by.i]++; } // akurasi: panah yang mengenai musuh
+          pr.hit.add(e); hurtEnemy(e, pr.dmg, { x: pr.x - pr.vx * .05, y: pr.y - pr.vy * .05 }, { poise: pr.reflected ? 2 : .8, by });
           if (pr.pierce > 0) pr.pierce--; else { pr.life = 0; break; }
         }
       }
@@ -29,7 +31,7 @@ function updateProj(dt) {
           if (r === 'parry') {
             const s = pr.src && !pr.src.dead ? pr.src : null;
             const ang = s ? angTo(pr, s) : Math.atan2(-pr.vy, -pr.vx), sp = Math.hypot(pr.vx, pr.vy) * 1.6;
-            pr.owner = 'p'; pr.vx = Math.cos(ang) * sp; pr.vy = Math.sin(ang) * sp; pr.dmg *= 2.4; pr.life = 2; pr.reflected = true; pr.hit = new Set();
+            pr.owner = 'p'; pr.by = p; pr.scored = true; pr.vx = Math.cos(ang) * sp; pr.vy = Math.sin(ang) * sp; pr.dmg *= 2.4; pr.life = 2; pr.reflected = true; pr.hit = new Set();
             msg(p, 'Dipantulkan!', 1);
           } else if (r !== 'miss') { pr.life = 0; }
           else pr.hit.add(p);

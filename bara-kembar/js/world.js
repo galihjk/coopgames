@@ -286,6 +286,21 @@ const BOSS_NAMES = { warden: 'Penjaga Gerbang Berkarat', queen: 'Ratu Abu, Sang 
 let SAVE = { cleared: [], solo: false };
 try { const s = JSON.parse(localStorage.getItem('barakembar') || 'null'); if (s && Array.isArray(s.cleared)) SAVE = s; } catch (e) { }
 if (!Array.isArray(SAVE.colors)) SAVE.colors = [0, 1]; // indeks PALETTE (player.js) untuk P1 & P2
+// Kesulitan: 'easy' (Santai) atau 'normal'. Pemain baru tanpa progres mulai di Santai.
+if (SAVE.diff !== 'easy' && SAVE.diff !== 'normal') SAVE.diff = SAVE.cleared.length ? 'normal' : 'easy';
+if (!Array.isArray(SAVE.clearedNormal)) SAVE.clearedNormal = SAVE.diff === 'normal' ? SAVE.cleared.slice() : []; // tamat di Normal → tanda ✦
+if (!SAVE.best || typeof SAVE.best !== 'object') SAVE.best = {}; // rekor waktu per level (detik)
+const isEasy = () => SAVE.diff === 'easy';
+// aturan yang berbeda antar kesulitan (Santai | Normal)
+const RULE = {
+  dmgTaken: () => isEasy() ? .6 : 1,     // damage yang diterima pemain
+  parryWin: () => isEasy() ? .3 : .2,    // jendela tangkisan (detik)
+  flasks: () => isEasy() ? 5 : 3,        // ramuan per api unggun
+  downT: () => isEasy() ? 40 : 25,       // waktu menunggu dibangkitkan rekan (detik)
+  bossTempo: () => isEasy() ? .85 : 1,   // ancang-ancang & jeda serangan bos (<1 = lebih lambat)
+  keepKills: () => isEasy(),             // musuh yang sudah mati tidak hidup lagi setelah tumbang
+  botSkill: () => isEasy() ? [.5, .9] : [.3, .8],
+};
 // kunci level: OPEN_LEVELS level pertama terbuka; tiap level yang tamat membuka satu level terkunci berikutnya
 const OPEN_LEVELS = 3;
 const unlockedCount = () => Math.min(LEVELS.length, OPEN_LEVELS + SAVE.cleared.length);

@@ -3,6 +3,7 @@
 //  UPDATE
 // =====================================================================
 function update(dt) {
+  if (G.mode === 'play') L.stats.t += dt;
   L.fieldT -= dt; if (L.fieldT <= 0) { computeFields(); L.fieldT = .3; }
   if (G.solo) botUpdate(players[1], players[0], dt); // bot mengisi IN[1] sebelum pemain diproses
   for (const p of players) updatePlayer(p, dt);

@@ -47,6 +47,8 @@ function hurtEnemy(e, dmg, src, o = {}) {
   }
   const crit = e.state === 'parried' && o.melee;
   if (crit) dmg *= 3; else if (e.state === 'parried') dmg *= 1.5;
+  const by = o.by || (src instanceof Player ? src : null); // pemain yang memberi damage (untuk statistik)
+  if (by) { L.stats.dmg[by.i] += Math.min(dmg, e.hp); if (e.hp - dmg <= 0) L.stats.kills[by.i]++; }
   e.hp -= dmg; e.flash = .12; e.showHp = 3;
   if (e.state === 'idle' && !e.boss) { e.state = 'chase'; alertNear(e); }
   e.poise -= dmg * (o.poise || 1) * (crit ? 3 : 1);
@@ -64,6 +66,7 @@ function alertNear(e) { for (const o of L.enemies) if (!o.dead && !o.boss && o.s
 function enemyParried(e) { e.atk = null; e.state = 'parried'; e.st = 0; e.stagDur = e.boss ? 1.3 : 1.6; e.z = 0; }
 function killEnemy(e) {
   e.dead = true; e.deadT = 0; e.hp = 0; e.atk = null; Snd.enemyDie();
+  if (e.spawnIdx != null) L.killed.add(e.spawnIdx); // dipakai mode Santai saat bangkit di api unggun
   for (let k = 0; k < 26; k++) part(e.x, e.y, rand(-80, 80), rand(-80, 80), rand(.5, 1.3), '#2a1d25', rand(2, 4));
   for (let k = 0; k < 12; k++) part(e.x, e.y, rand(-30, 30), rand(-70, -20), rand(.6, 1.4), '#ff9a4a', 2, true);
   if (e.boss) { if (L.bosses.every(b => b.dead)) bossDefeated(e); else bossFallen(e); }
@@ -195,7 +198,7 @@ const DEF = {
     tele: (e, a, p) => teleCircle(e.x, e.y, 96, p), teleAct: e => teleCircle(e.x, e.y, 96, .55) },
   // kait rantai: garis lurus; yang terkena ditarik ke bos lalu ditebas
   xHook: { wind: .65, act: .35, rec: .7, track: 4, anim: [.5, -1.6, 0], cd: [.5, .9],
-    windUpd: (e, a) => { if (a.t > .45 / e.spdMul) a.lock = true; },
+    windUpd: (e, a) => { if (a.t > .45 / tempo(e)) a.lock = true; },
     onAct: (e, a) => { a.len = 0; Snd.chain(); Snd.swing(); },
     actUpd: (e, a) => {
       a.len = Math.min(280, a.t / .18 * 280);
@@ -237,7 +240,7 @@ const DEF = {
     hitFn: (e, a) => meleeArc(e, a, 96, .9, 30, { parryable: true, knock: 260, stagger: .5 }), tele: (e, a, p) => teleLine(e.x, e.y, e.face, 96 + e.r + 36, 18, p) },
   // terjangan kilat: melesat lurus, jejaknya meledak jadi pilar bara
   kDash: { wind: .7, act: .42, rec: .7, track: 5, anim: [-.4, 0, 0], cd: [.5, .9],
-    windUpd: (e, a) => { if (a.t > .5 / e.spdMul) a.lock = true; },
+    windUpd: (e, a) => { if (a.t > .5 / tempo(e)) a.lock = true; },
     onAct: (e, a) => { a.sx = e.x; a.sy = e.y; Snd.roll(); Snd.swing(); },
     actUpd: (e, a, dt) => {
       const hit = moveCircle(e, Math.cos(e.face) * 620 * dt, Math.sin(e.face) * 620 * dt);
@@ -349,13 +352,15 @@ const DEF = {
     },
     tele: (e, a, p) => teleCircle(e.x, e.y, 60, p * .4) },
 };
+// kecepatan ancang-ancang/jeda serangan; di Santai bos sedikit lebih lambat (gerak jalan tidak terpengaruh)
+const tempo = e => e.spdMul * (e.boss ? RULE.bossTempo() : 1);
 function startAtk(e, def, tgt) {
   e.state = 'atk'; e.atk = { def, ph: 'w', t: 0, tgt: tgt || e.tgt, hit: new Set() };
   def.onStart && def.onStart(e, e.atk);
   if (!def.onStart) e.boss ? Snd.bossTele() : Snd.tele();
 }
 function runAttack(e, dt) {
-  const a = e.atk, d = a.def, sp = e.spdMul;
+  const a = e.atk, d = a.def, sp = tempo(e);
   a.t += dt;
   if (a.ph === 'w') {
     if (d.track && a.tgt && !a.lock) e.face = turnTo(e.face, angTo(e, a.tgt), d.track * sp * dt);
@@ -378,7 +383,7 @@ function runAttack(e, dt) {
 }
 function weaponAngle(e) {
   const a = e.atk; if (!a) return e.state === 'parried' || e.state === 'stag' ? 2.6 : .6;
-  const [r0, r1, r2] = a.def.anim, sp = e.spdMul;
+  const [r0, r1, r2] = a.def.anim, sp = tempo(e);
   if (a.ph === 'w') return lerp(r0, r1, easeOut(clamp(a.t / (a.def.wind / sp), 0, 1)));
   if (a.ph === 'a') return lerp(r1, r2, easeOut(clamp(a.t / a.def.act, 0, 1)));
   const k = clamp(a.t / (a.def.rec / sp), 0, 1); return lerp(r2, r0, clamp((k - .5) * 2, 0, 1));

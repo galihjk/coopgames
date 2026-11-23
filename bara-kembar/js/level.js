@@ -7,7 +7,7 @@ function loadLevel(idx) {
   const def = LEVELS[idx], rows = def.map;
   const h = rows.length, w = Math.max(...rows.map(r => r.length));
   const grid = new Uint8Array(w * h);
-  const lv = { idx, def, w, h, grid, spawns: [], bonfires: [], gates: [], start: null, bossSpawn: null, gateState: 'fog', bossState: 'dormant', enemies: [], projectiles: [], hazards: [], particles: [], decals: [], portal: null, fields: [null, null], fieldT: 0, boss: null, gateHintT: 0 };
+  const lv = { idx, def, killed: new Set(), stats: newStats(), w, h, grid, spawns: [], bonfires: [], gates: [], start: null, bossSpawn: null, gateState: 'fog', bossState: 'dormant', enemies: [], projectiles: [], hazards: [], particles: [], decals: [], portal: null, fields: [null, null], fieldT: 0, boss: null, gateHintT: 0 };
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const ch = rows[y][x] || '#', c = { x: (x + .5) * T, y: (y + .5) * T };
     grid[y * w + x] = ch === '#' ? 1 : ch === 'F' ? 2 : 0;
@@ -36,7 +36,8 @@ function loadLevel(idx) {
   cam.x = L.start.x; cam.y = L.start.y; cam.z = (ZMIN + ZMAX) / 2;
 }
 function populate() {
-  L.enemies = L.spawns.map(s => makeEnemy(s.type, s.x, s.y));
+  L.enemies = [];
+  L.spawns.forEach((s, i) => { if (RULE.keepKills() && L.killed.has(i)) return; const e = makeEnemy(s.type, s.x, s.y); e.spawnIdx = i; L.enemies.push(e); });
   L.bosses = [];
   if (L.bossState !== 'dead') {
     const types = L.def.bosses || [L.def.boss]; // level kembar: beberapa bos berdampingan

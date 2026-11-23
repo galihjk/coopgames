@@ -36,6 +36,8 @@ addEventListener('keydown', e => {
   if (G.mode === 'title' && /^Digit[1-9]$/.test(e.code) && +e.code[5] <= LEVELS.length) { if (isUnlocked(+e.code[5] - 1)) startGame(+e.code[5] - 1); else Snd.fail(); return; }
   if (G.mode === 'title' && e.code === 'KeyM') { toggleSolo(); return; }
   if (G.mode === 'win' && e.code === 'Enter') { G.mode = 'title'; return; }
+  if (G.mode === 'clear' && e.code === 'Enter') { if (G.clearT > .6 && G.fadeDir === 0) continueAfterClear(); return; }
+  if (G.mode === 'title' && e.code === 'KeyK') { toggleDiff(); return; }
   const m = KEYMAP[e.code]; if (!m) return; e.preventDefault();
   const n = IN[G.solo ? 0 : m[0]]; // mode solo: kedua set tombol mengendalikan P1
   if (typeof m[1] === 'number') n.kb[m[1]] = 1; else n.kx[m[1]] = 1;
