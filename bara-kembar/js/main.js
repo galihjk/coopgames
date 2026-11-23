@@ -17,12 +17,14 @@ function update(dt) {
   if (G.mode === 'over') { G.overT += dt; if (G.overT > 3.6) respawnAll(); }
 }
 function updateCam(dt) {
-  const ps = players.filter(p => !p.dead); const list = ps.length ? ps : players;
+  let list = players.filter(p => !p.dead); if (!list.length) list = players;
+  // solo: kamera berpusat pada pemain; bot hanya ikut dibingkai kalau cukup dekat (kalau jauh, ada panah penunjuk)
+  if (G.solo && players[0].alive && dist(players[0], players[1]) > 480) list = [players[0]];
   let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
   for (const p of list) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
   let tx = (x0 + x1) / 2, ty = (y0 + y1) / 2;
   for (const b of L.bossState === 'active' ? aliveBosses() : []) { tx = lerp(tx, b.x, .18 / aliveBosses().length); ty = lerp(ty, b.y, .18 / aliveBosses().length); }
-  const tz = clamp(Math.min(W * .6 / (x1 - x0 + 170), H * .8 / (y1 - y0 + 150)), ZMIN, ZMAX);
+  const tz = clamp(Math.min(W * .6 / (x1 - x0 + 170), H * .8 / (y1 - y0 + 150)), ZMIN / (bossFight() && !G.solo ? BOSS_SLACK : 1), ZMAX);
   const k = 1 - Math.pow(.02, dt);
   cam.x = lerp(cam.x, tx, k); cam.y = lerp(cam.y, ty, k); cam.z = lerp(cam.z, tz, 1 - Math.pow(.1, dt));
 }

@@ -182,6 +182,11 @@ function drawPlayer(p) {
   }
   if (p.state === 'swap') { o.armL = [2, -5]; o.armR = [2, 5]; o.extra = null; }
   drawStick(o);
+  if (p.slowT > 0) { // terjerat jaring
+    ctx.strokeStyle = `rgba(232,232,240,${Math.min(.8, p.slowT / 1.5)})`; ctx.lineWidth = 1;
+    for (let k = 0; k < 5; k++) { const g = k / 5 * TAU + .4; line(p.x + Math.cos(g) * 6, p.y + Math.sin(g) * 6, p.x + Math.cos(g + 1.1) * 17, p.y + Math.sin(g + 1.1) * 17); }
+    ctx.beginPath(); ctx.arc(p.x, p.y, 13, 0, TAU); ctx.stroke();
+  }
   if (p.parryFx > 0) { ctx.strokeStyle = `rgba(255,250,220,${p.parryFx * 2})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, 20 + (.4 - p.parryFx) * 80, 0, TAU); ctx.stroke(); }
 }
 
@@ -211,6 +216,7 @@ function drawEnemy(e) {
   ctx.save(); ctx.globalAlpha = fade * e.alpha;
   const sh = e.r * (1 - Math.min(.5, e.z / 140));
   ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(e.x, e.y, sh + 2, sh, 0, 0, TAU); ctx.fill();
+  if (BEAST_DRAW[e.type]) { BEAST_DRAW[e.type](e); ctx.restore(); return; } // monster bukan manusia (monsters.js)
   if (e.type === 'totem') { drawTotem(e); ctx.restore(); return; }
   if (e.type === 'lantern' && !e.dead) drawLanternAura(e);
   if (e.dead) { // tergeletak
@@ -338,6 +344,7 @@ function drawEnemy(e) {
       ctx.fillStyle = lit; ctx.globalAlpha = .75 + Math.sin(G.t * 9) * .2; ctx.beginPath(); ctx.arc(24.5, sw, 3.2, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
     };
     o.top = () => { ctx.fillStyle = '#2a2018'; ctx.beginPath(); ctx.arc(.5, 0, 6.3, Math.PI * .4, Math.PI * 1.6); ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 1.2; ctx.stroke(); };
+  } else if (e.type === 'guard') { decorateGuard(e, o, st, wa, col);
   } else if (e.type === 'snuffer') {
     const beam = e.atk && e.atk.def === DEF.vBeam && e.atk.ph !== 'r';
     o.stride = 0; o.z = 8 + Math.sin(G.t * 2) * 3;              // melayang
@@ -431,13 +438,23 @@ function render() {
     if (h.kind === 'pillar') {
       if (!h.done) teleCircle(h.x, h.y, h.r, clamp(h.t / h.delay, 0, 1));
       else { const k = (h.t - h.delay) / .45; ctx.fillStyle = `rgba(255,140,50,${.6 * (1 - k)})`; ctx.beginPath(); ctx.arc(h.x, h.y, h.r * (1 + k * .2), 0, TAU); ctx.fill(); }
+    } else if (h.kind === 'root') { // tanda retak lalu paku-paku akar mencuat
+      if (!h.done) teleCircle(h.x, h.y, h.r, clamp(h.t / h.delay, 0, 1));
+      else {
+        const k = clamp((h.t - h.delay) / .6, 0, 1), up = Math.min(1, (h.t - h.delay) / .08) * (1 - Math.max(0, k - .6) / .4);
+        ctx.strokeStyle = '#5a4428'; ctx.lineCap = 'round';
+        for (let j = 0; j < 6; j++) { const g = j / 6 * TAU + h.x * .1, r0 = 5 + (j % 2) * 8; ctx.lineWidth = 4 - (j % 2); line(h.x + Math.cos(g) * r0, h.y + Math.sin(g) * r0, h.x + Math.cos(g) * (r0 + 16 * up), h.y + Math.sin(g) * (r0 + 16 * up) - 10 * up); }
+      }
     }
   }
   const ents = [...L.enemies, ...players].sort((a, b) => (a.dead ? -1 : 0) - (b.dead ? -1 : 0) || a.y - b.y);
   for (const e of ents) e instanceof Player ? drawPlayer(e) : drawEnemy(e);
   // proyektil
   for (const pr of L.projectiles) {
-    if (pr.kind === 'arrow') {
+    if (pr.kind === 'web') { // jaring: lingkaran dengan jari-jari
+      ctx.strokeStyle = 'rgba(232,232,240,.85)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(pr.x, pr.y, pr.r, 0, TAU); ctx.stroke();
+      for (let k = 0; k < 6; k++) { const g = k / 6 * TAU + G.t * 3; line(pr.x, pr.y, pr.x + Math.cos(g) * pr.r * 1.3, pr.y + Math.sin(g) * pr.r * 1.3); }
+    } else if (pr.kind === 'arrow') {
       const a = Math.atan2(pr.vy, pr.vx); ctx.strokeStyle = pr.owner === 'p' ? (pr.full ? '#fff3b0' : '#e8e0d0') : '#d8a0ff'; ctx.lineWidth = 2;
       line(pr.x - Math.cos(a) * 12, pr.y - Math.sin(a) * 12, pr.x + Math.cos(a) * 3, pr.y + Math.sin(a) * 3);
     } else {
@@ -481,6 +498,7 @@ function render() {
 
   baseT();
   drawVignette();
+  drawOffscreen();
   drawControls();
   for (const i of frames()) inFrame(i, (LW, LH) => drawHUD(players[i], LW, LH));
   drawPauseBtn();
@@ -507,6 +525,20 @@ function drawAimLine(p) {
     for (let k = 0; k < 4; k++) { const a0 = k * Math.PI / 2 + G.t * 2; ctx.beginPath(); ctx.arc(x1, y1, r, a0, a0 + .9); ctx.stroke(); }
   }
   ctx.restore();
+}
+// panah di tepi layar menunjuk pemain/bot yang berada di luar layar
+function drawOffscreen() {
+  const m = 34 * U;
+  for (const p of players) {
+    if (p.dead) continue;
+    const sx = (p.x - cam.x) * cam.z + W / 2, sy = (p.y - cam.y) * cam.z + H / 2;
+    if (sx > m * .3 && sx < W - m * .3 && sy > m * .3 && sy < H - m * .3) continue;
+    const a = Math.atan2(sy - H / 2, sx - W / 2), x = clamp(sx, m, W - m), y = clamp(sy, m, H - m), s = 10 * U;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+    ctx.fillStyle = `rgba(${p.glow},${.6 + Math.sin(G.t * 6) * .25})`; ctx.beginPath(); ctx.moveTo(s, 0); ctx.lineTo(-s * .7, -s * .75); ctx.lineTo(-s * .7, s * .75); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    if (p.down) { ctx.strokeStyle = '#ff8a70'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, s * 1.6, 0, TAU); ctx.stroke(); } // tumbang: perlu dibangkitkan
+  }
 }
 function drawLighting() {
   const lw = lightCv.width, lh = lightCv.height, s = .5;

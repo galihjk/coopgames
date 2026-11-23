@@ -17,8 +17,11 @@ const ETYPE = {
   totem: { hp: 90, r: 14, speed: 0, poise: 999, aggro: 999, col: '#c89a5a', sc: 1, lw: 2 },                       // totem bara: sumber perisai
   shade: { hp: 60, r: 11, speed: 100, poise: 22, aggro: 999, col: '#9a88ff', sc: 1.1, lw: 2.2 }, // bayangan panggilan Sang Pemadam
 };
+// musuh biasa makin tangguh tiap level: +6% HP & damage per level (bos tidak, karena sudah diatur sendiri)
+const LEVEL_SCALE = .06;
+const lvlMul = () => 1 + LEVEL_SCALE * (L ? L.idx : 0);
 function makeEnemy(type, x, y) {
-  const d = ETYPE[type];
+  const d0 = ETYPE[type], d = d0.boss ? d0 : Object.assign({}, d0, { hp: Math.round(d0.hp * lvlMul()) });
   return {
     type, x, y, hx: x, hy: y, r: d.r, speed: d.speed, maxHp: d.hp, hp: d.hp, hpLag: d.hp, maxPoise: d.poise, poise: d.poise,
     aggroR: d.aggro, col: d.col, sc: d.sc, lw: d.lw, boss: !!d.boss, state: 'idle', st: 0, face: Math.random() * TAU,
@@ -45,6 +48,12 @@ function hurtEnemy(e, dmg, src, o = {}) {
     for (const p of players) if (p.alive && (!p.msg || p.msg.t > 1.5)) msg(p, 'Terlindung perisai! Hancurkan totem bara dulu', 1.6);
     return;
   }
+  if (guardBlocks(e, src)) { // Ksatria Penjaga menahan serangan dari depan; pukulan beruntun tetap mengikis kuda-kudanya
+    e.flash = .04; e.showHp = 2; Snd.block(); sparks(e.x + Math.cos(e.face) * e.r, e.y + Math.sin(e.face) * e.r, 7, '#fff1d0');
+    e.poise -= dmg * .5; if (e.poise <= 0) { e.poise = e.maxPoise; e.state = 'stag'; e.st = 0; e.stagDur = 1.1; e.atk = null; Snd.guardBreak(); }
+    for (const p of players) if (p.alive && !p.msg && dist(p, e) < 200) msg(p, 'Ditahan tameng! Serang dari samping', 1.2);
+    return;
+  }
   const crit = e.state === 'parried' && o.melee;
   if (crit) dmg *= 3; else if (e.state === 'parried') dmg *= 1.5;
   const by = o.by || (src instanceof Player ? src : null); // pemain yang memberi damage (untuk statistik)
@@ -67,6 +76,7 @@ function enemyParried(e) { e.atk = null; e.state = 'parried'; e.st = 0; e.stagDu
 function killEnemy(e) {
   e.dead = true; e.deadT = 0; e.hp = 0; e.atk = null; Snd.enemyDie();
   if (e.spawnIdx != null) L.killed.add(e.spawnIdx); // dipakai mode Santai saat bangkit di api unggun
+  slimeSplit(e);
   for (let k = 0; k < 26; k++) part(e.x, e.y, rand(-80, 80), rand(-80, 80), rand(.5, 1.3), '#2a1d25', rand(2, 4));
   for (let k = 0; k < 12; k++) part(e.x, e.y, rand(-30, 30), rand(-70, -20), rand(.6, 1.4), '#ff9a4a', 2, true);
   if (e.boss) { if (L.bosses.every(b => b.dead)) bossDefeated(e); else bossFallen(e); }

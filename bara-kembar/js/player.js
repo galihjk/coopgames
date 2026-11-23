@@ -25,7 +25,7 @@ class Player {
       x, y, kx: 0, ky: 0, hp: this.maxHp, hpLag: this.maxHp, stam: this.maxStam, stamCd: 0, flasks: RULE.flasks(),
       state: 'free', st: 0, face: this.i ? Math.PI : 0, vface: this.i ? Math.PI : 0, combo: 0, chainLock: false, hitSet: null, blockT: 0, drawT: 0,
       relPending: false, iframe: 1, flash: 0, down: false, dead: false, downT: 0, revT: 0, b3T: -1, healDone: false,
-      rollA: 0, walk: 0, moving: 0, stagDur: 0, msg: null, swapHint: 0, parryFx: 0
+      slowT: 0, rollA: 0, walk: 0, moving: 0, stagDur: 0, msg: null, swapHint: 0, parryFx: 0
     });
   }
   get alive() { return !this.down && !this.dead; }
@@ -56,11 +56,16 @@ function setColor(i, k) {
 }
 applyColors();
 
-function sepVal(a, b) { const dx = (a.x - b.x) / LEASH.x, dy = (a.y - b.y) / LEASH.y; return dx * dx + dy * dy; }
+// "tali" menjaga kedua pemain tetap terlihat di satu layar (mode 2 pemain). Saat bertarung dengan bos
+// talinya dilonggarkan (BOSS_SLACK) dan kamera boleh menjauh lebih lebar, karena arena bos lebar.
+const BOSS_SLACK = 1.35;
+const bossFight = () => L && L.bossState === 'active';
+function sepVal(a, b) { const s = bossFight() ? BOSS_SLACK : 1, dx = (a.x - b.x) / (LEASH.x * s), dy = (a.y - b.y) / (LEASH.y * s); return dx * dx + dy * dy; }
 function movePlayer(p, dx, dy) {
   const q = players[1 - p.i];
   // bot (mode solo) tidak terikat tali: ia kadang harus menjauh dulu (mis. memutar lewat tangga) untuk menyusul
-  if (q.dead || (G.solo && p.i === 1)) { moveCircle(p, dx, dy); return; }
+  // mode solo tanpa tali: kamera mengikuti pemain, bot menyusul sendiri (atau berteleportasi)
+  if (q.dead || G.solo) { moveCircle(p, dx, dy); return; }
   const before = sepVal(p, q);
   const ox = p.x, oy = p.y;
   moveCircle(p, dx, dy);
@@ -117,6 +122,7 @@ function updatePlayer(p, dt) {
     moveCircle(p, p.kx * dt, p.ky * dt); const f = Math.pow(.0015, dt); p.kx *= f; p.ky *= f;
     if (Math.hypot(p.kx, p.ky) < 6) p.kx = p.ky = 0;
   }
+  if (p.slowT > 0) p.slowT -= dt; // terjerat jaring laba-laba
   p.vface = turnTo(p.vface == null ? p.face : p.vface, p.face, VTURN * dt);
   if (p.state === 'down') return;
   // stamina
@@ -128,7 +134,9 @@ function updatePlayer(p, dt) {
   const mag = Math.hypot(inp.mx, inp.my), m = mag > .2 ? Math.min(1, mag) : 0;
   const mAng = Math.atan2(inp.my, inp.mx);
   p.st += dt; p.moving = 0;
+  const slow = p.slowT > 0 ? .5 : 1;
   const walk = spd => { // jalan biasa: arah langsung mengikuti joystick
+    spd *= slow;
     if (m > 0) {
       p.face = mAng;
       movePlayer(p, Math.cos(mAng) * spd * m * dt, Math.sin(mAng) * spd * m * dt);
@@ -136,6 +144,7 @@ function updatePlayer(p, dt) {
     }
   };
   const aimWalk = spd => { // sambil menahan tombol: dorongan ringan = membidik saja, dorongan penuh = melangkah pelan
+    spd *= slow;
     if (m <= 0) return;
     p.face = mAng;
     if (mag < AIM_ONLY) return;
@@ -246,6 +255,7 @@ function updatePlayer(p, dt) {
 
 function hurtPlayer(p, dmg, src, o = {}) {
   if (!p.alive || p.iframe > 0) return 'miss';
+  const by = src && (src.src || src); if (by && by.maxHp && !by.boss) dmg *= lvlMul(); // musuh biasa: +6%/level
   dmg *= RULE.dmgTaken();
   const a = Math.atan2(src.y - p.y, src.x - p.x);
   const front = Math.abs(angDiff(p.face, a)) < 1.3;

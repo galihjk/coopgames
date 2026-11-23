@@ -2,6 +2,9 @@
 // =====================================================================
 //  LEVEL
 // =====================================================================
+// huruf peta → jenis musuh (monsters.js menambah huruf monster khas), dan berapa ekor per huruf
+const SPAWN_CHARS = { g: 'grunt', a: 'archer', b: 'brute' };
+const GROUP_SIZE = {};
 function loadLevel(idx) {
   G.sel = idx; // layar judul ikut menunjuk level yang sedang/terakhir dimainkan
   const def = LEVELS[idx], rows = def.map;
@@ -14,7 +17,7 @@ function loadLevel(idx) {
     if (ch === 'F') lv.gates.push(c);
     if (ch === 'S') lv.start = c;
     if (ch === 'B') lv.bonfires.push(Object.assign(c, { lit: false, r: 14 }));
-    if ('gab'.includes(ch)) lv.spawns.push({ type: { g: 'grunt', a: 'archer', b: 'brute' }[ch], x: c.x, y: c.y });
+    if (SPAWN_CHARS[ch]) lv.spawns.push({ type: SPAWN_CHARS[ch], x: c.x, y: c.y });
     if (ch === 'X') lv.bossSpawn = c;
   }
   // area arena = flood fill dari X (gerbang & dinding membatasi)
@@ -37,7 +40,14 @@ function loadLevel(idx) {
 }
 function populate() {
   L.enemies = [];
-  L.spawns.forEach((s, i) => { if (RULE.keepKills() && L.killed.has(i)) return; const e = makeEnemy(s.type, s.x, s.y); e.spawnIdx = i; L.enemies.push(e); });
+  L.spawns.forEach((s, i) => {
+    const n = GROUP_SIZE[s.type] || 1; // kelelawar & anjing datang berkelompok
+    for (let k = 0; k < n; k++) {
+      const key = i + ':' + k; if (RULE.keepKills() && L.killed.has(key)) continue;
+      const g = k / n * TAU, off = n > 1 ? 16 : 0, e = makeEnemy(s.type, s.x + Math.cos(g) * off, s.y + Math.sin(g) * off);
+      e.spawnIdx = key; L.enemies.push(e);
+    }
+  });
   L.bosses = [];
   if (L.bossState !== 'dead') {
     const types = L.def.bosses || [L.def.boss]; // level kembar: beberapa bos berdampingan
@@ -119,9 +129,16 @@ function prerenderLevel() {
     if (!solid(x, y)) {
       const v = rnd() * 10 - 5;
       g.fillStyle = `rgb(${fr + v},${fg + v},${fb + v})`; g.fillRect(px, py, T, T);
+      if (L.def.style === 'forest') { // tanah berabu: bercak gelap, ranting & daun hangus (tanpa ubin)
+        for (let k = 0; k < 3; k++) { g.fillStyle = `rgba(0,0,0,${.08 + rnd() * .12})`; g.beginPath(); g.ellipse(px + rnd() * T, py + rnd() * T, 6 + rnd() * 10, 4 + rnd() * 7, rnd() * TAU, 0, TAU); g.fill(); }
+        g.strokeStyle = 'rgba(30,22,14,.55)'; g.lineWidth = 1.2;
+        if (rnd() < .35) { const cx = px + rnd() * T, cy = py + rnd() * T, a = rnd() * TAU; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * 9, cy + Math.sin(a) * 9); g.lineTo(cx + Math.cos(a + .6) * 13, cy + Math.sin(a + .6) * 13); g.stroke(); }
+        if (rnd() < .12) { g.fillStyle = 'rgba(255,110,50,.25)'; g.beginPath(); g.arc(px + rnd() * T, py + rnd() * T, 1.5, 0, TAU); g.fill(); }
+      } else {
       g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1.5;
       g.strokeRect(px + .75, py + .75, T - 1.5, T - 1.5);
-      if (rnd() < .5) { g.beginPath(); if (rnd() < .5) { g.moveTo(px + T / 2, py); g.lineTo(px + T / 2, py + T); } else { g.moveTo(px, py + T / 2); g.lineTo(px + T, py + T / 2); } g.stroke(); }
+      }
+      if (L.def.style !== 'forest' && rnd() < .5) { g.beginPath(); if (rnd() < .5) { g.moveTo(px + T / 2, py); g.lineTo(px + T / 2, py + T); } else { g.moveTo(px, py + T / 2); g.lineTo(px + T, py + T / 2); } g.stroke(); }
       if (rnd() < .25) { // retakan
         g.strokeStyle = 'rgba(0,0,0,.4)'; g.lineWidth = 1; g.beginPath();
         let cx = px + rnd() * T, cy = py + rnd() * T; g.moveTo(cx, cy);
@@ -142,6 +159,7 @@ function prerenderLevel() {
     } else {
       const v = rnd() * 8 - 4;
       g.fillStyle = `rgb(${wr + v},${wg + v},${wb + v})`; g.fillRect(px, py, T, T);
+      if (L.def.style === 'forest') continue; // tajuk pohon digambar sesudahnya (bisa menjorok ke petak sebelah)
       g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1.5;
       for (let r = 0; r < 3; r++) { // bata
         const yy = py + r * 16; g.beginPath(); g.moveTo(px, yy); g.lineTo(px + T, yy); g.stroke();
@@ -152,6 +170,18 @@ function prerenderLevel() {
       if (!solid(x, y + 1)) { g.beginPath(); g.moveTo(px, py + T - 2); g.lineTo(px + T, py + T - 2); g.stroke(); }
       if (!solid(x - 1, y)) { g.beginPath(); g.moveTo(px + 2, py); g.lineTo(px + 2, py + T); g.stroke(); }
       if (!solid(x + 1, y)) { g.beginPath(); g.moveTo(px + T - 2, py); g.lineTo(px + T - 2, py + T); g.stroke(); }
+    }
+  }
+  if (L.def.style === 'forest') { // tajuk pohon hangus: lingkaran gelap bertumpuk dengan ranting
+    for (let y = 0; y < L.h; y++) for (let x = 0; x < L.w; x++) {
+      if (!solid(x, y)) continue;
+      const cx = (x + .5) * T + rnd() * 10 - 5, cy = (y + .5) * T + rnd() * 10 - 5, r = T * (.55 + rnd() * .2);
+      const gr = g.createRadialGradient(cx - 6, cy - 6, 2, cx, cy, r);
+      gr.addColorStop(0, `rgb(${wr + 18},${wg + 16},${wb + 8})`); gr.addColorStop(1, `rgb(${wr - 12},${wg - 12},${wb - 10})`);
+      g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, r, 0, TAU); g.fill();
+      g.strokeStyle = 'rgba(20,14,10,.7)'; g.lineWidth = 1.5;
+      for (let k = 0; k < 4; k++) { const a = rnd() * TAU; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * r * .8, cy + Math.sin(a) * r * .8); g.stroke(); }
+      if (rnd() < .2) { g.fillStyle = 'rgba(255,120,50,.35)'; g.beginPath(); g.arc(cx + rnd() * 12 - 6, cy + rnd() * 12 - 6, 1.8, 0, TAU); g.fill(); } // bara di dahan
     }
   }
   // lingkaran ritual di arena bos

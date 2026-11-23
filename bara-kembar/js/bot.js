@@ -74,7 +74,7 @@ function botNotice(key) {
 //          block: bisa ditangkis, walk: bisa dihindari dengan berjalan, ring, lead: waktu reaksi }
 let BOT_ARC = null; // serangan tebasan: [jangkauan, lebar busur]
 function botThreat(b) {
-  if (!BOT_ARC) BOT_ARC = new Map([[DEF.gSlash, [40, 2.0]], [DEF.gHeavy, [46, 2.2]], [DEF.bSweep, [60, 2.8]], [DEF.wSweep, [78, 2.9]], [DEF.wSweep2, [78, 2.9]], [DEF.xSwing, [84, 2.6]], [DEF.xSwing2, [84, 2.6]], [DEF.k1, [64, 2.2]], [DEF.k2, [64, 2.2]], [DEF.lSweep, [92, 3.0]]]);
+  if (!BOT_ARC) BOT_ARC = new Map([[DEF.gSlash, [40, 2.0]], [DEF.gHeavy, [46, 2.2]], [DEF.bSweep, [60, 2.8]], [DEF.wSweep, [78, 2.9]], [DEF.wSweep2, [78, 2.9]], [DEF.xSwing, [84, 2.6]], [DEF.xSwing2, [84, 2.6]], [DEF.k1, [64, 2.2]], [DEF.k2, [64, 2.2]], [DEF.lSweep, [92, 3.0]], [DEF.pBash, [36, 1.6]], [DEF.wBite, [34, 1.6]], [DEF.eSweep, [72, 2.6]], [DEF.fBite, [58, 2.0]]]);
   let best = null;
   const add = (key, t, fx, fy, src, o = {}) => {
     if (best && best.t <= t) return;
@@ -98,6 +98,10 @@ function botThreat(b) {
       if (Math.hypot(b.x - a.tx, b.y - a.ty) < 88 + pad) add(a, a.ph === 'w' ? left + .6 : .6 - a.t, b.x - a.tx, b.y - a.ty, { x: a.tx, y: a.ty });
     } else if (d === DEF.wCharge) line(420, e.r, 430);
     else if (d === DEF.xHook) line(290, 12, 1500);
+    else if (d === DEF.pThrust) line(95, 8, 900);
+    else if (d === DEF.batSwoop) line(200, e.r, 330);
+    else if (d === DEF.hPounce) line(150, e.r, 360);
+    else if (d === DEF.sHop) { if (a.tx != null && Math.hypot(b.x - a.tx, b.y - a.ty) < slimeR(e) + pad) add(a, a.ph === 'w' ? left + .45 : .45 - a.t, b.x - a.tx, b.y - a.ty, { x: a.tx, y: a.ty }); }
     else if (d === DEF.kDash) line(300, e.r, 620);
     else if (d === DEF.k3) line(150, 10, 900);
     else if (d === DEF.vBeam) { // sinar berputar: hitung kapan sinar menyapu posisi bot, lalu guling menembusnya
@@ -129,7 +133,8 @@ function botThreat(b) {
     }
   }
   for (const h of L.hazards) {
-    if (h.kind === 'pillar' && !h.done) { if (dist(b, h) < h.r + pad) add(h, h.delay - h.t, b.x - h.x, b.y - h.y, h, { block: false }); }
+    if (h.kind === 'root' && !h.done) { if (dist(b, h) < h.r + pad) add(h, h.delay - h.t, b.x - h.x, b.y - h.y, h); }
+    else if (h.kind === 'pillar' && !h.done) { if (dist(b, h) < h.r + pad) add(h, h.delay - h.t, b.x - h.x, b.y - h.y, h, { block: false }); }
     else if (h.kind === 'ring') {
       const gap = dist(b, h) - h.rad - h.w / 2 - b.r;
       if (gap > -4 && gap < 80 && h.rad < h.max) add(h, gap / h.speed, h.x - b.x, h.y - b.y, h, { walk: false, ring: true });
@@ -146,7 +151,8 @@ function botTarget(b, h, melee) {
     const d = dist(b, e);
     if (melee ? d > 360 || (d > 160 && !los(b, e)) : d > 430 || !los(b, e)) continue;
     let s = melee ? d * .5 + (h.alive ? dist(h, e) * .5 : d * .5) : d;   // pedang: lindungi rekan
-    if (e.shield) s += 400;                                             // bos berperisai → incar totem dulu
+    if (e.shield) s += 400;
+    if (melee && e.type === 'guard' && Math.abs(angDiff(e.face, angTo(e, b))) < 1.1) s += 120; // tameng penjaga menghadap bot → cari sasaran lain dulu                                             // bos berperisai → incar totem dulu
     if (e.tgt === b) s -= 90;
     if (h.alive && (melee ? e.tgt === h : dist(h, e) < 130)) s -= 70;
     if (e.state === 'idle' && h.alive && dist(h, e) > 260) s += 250;    // jangan memancing musuh jauh

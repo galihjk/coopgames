@@ -33,7 +33,10 @@ function updateProj(dt) {
             const ang = s ? angTo(pr, s) : Math.atan2(-pr.vy, -pr.vx), sp = Math.hypot(pr.vx, pr.vy) * 1.6;
             pr.owner = 'p'; pr.by = p; pr.scored = true; pr.vx = Math.cos(ang) * sp; pr.vy = Math.sin(ang) * sp; pr.dmg *= 2.4; pr.life = 2; pr.reflected = true; pr.hit = new Set();
             msg(p, 'Dipantulkan!', 1);
-          } else if (r !== 'miss') { pr.life = 0; }
+          } else if (r !== 'miss') {
+            pr.life = 0;
+            if (r === 'hit' && pr.web) { p.slowT = 2.4; msg(p, 'Terjerat jaring! Gerak melambat', 1.2); for (let k = 0; k < 10; k++) part(p.x, p.y, rand(-40, 40), rand(-40, 40), .5, '#e8e8f0', 1.5); }
+          }
           else pr.hit.add(p);
           break;
         }
@@ -50,6 +53,13 @@ function updateProj(dt) {
         decal(h.x, h.y, h.r * .8, 'rgba(10,6,4,.5)');
       }
       if (h.t > h.delay + .45) h.gone = true;
+    } else if (h.kind === 'root') { // akar ent: bisa ditangkis, menahan sesaat
+      h.t += dt;
+      if (!h.done && h.t >= h.delay) {
+        h.done = true; aoe(h.x, h.y, h.r, 18, { knock: 160, stagger: .35 }); Snd.hit();
+        for (let k = 0; k < 12; k++) part(h.x, h.y, rand(-60, 60), rand(-60, 60), rand(.3, .6), '#4a3a28', rand(2, 3.5));
+      }
+      if (h.t > h.delay + .6) h.gone = true;
     } else if (h.kind === 'ring') {
       h.rad += h.speed * dt;
       for (const p of players) if (p.alive && !h.hit.has(p) && Math.abs(dist(p, h) - h.rad) < h.w / 2 + p.r * .6) { h.hit.add(p); hurtPlayer(p, h.dmg, h, { knock: 220 }); }
