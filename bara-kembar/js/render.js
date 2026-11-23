@@ -171,9 +171,10 @@ function drawEnemy(e) {
   const o = { x: e.x, y: e.y, z: e.z, face: e.face, col, lw: e.lw, sc: e.sc * (1 + e.z / 260), walk: e.walk, stride: e.state === 'chase' ? 4.5 : 0, headFill: '#0d0b10', armL: [7, -8], armR: hand };
   const st = e.state;
   if (st === 'stag' || st === 'parried') { o.armL = [-4, -11]; o.armR = [-4, 11]; o.lean = -2; }
-  if (e.type === 'grunt') {
-    o.extra = () => { const [hx, hy] = o.armR, a = st === 'stag' || st === 'parried' ? 2.6 : wa; ctx.strokeStyle = '#7d7466'; ctx.lineWidth = 2.6; line(hx, hy, hx + Math.cos(a) * 17, hy + Math.sin(a) * 17); };
-    o.top = () => { ctx.fillStyle = '#ff3a2a'; ctx.beginPath(); ctx.arc(3.5, -1.8, .9, 0, TAU); ctx.arc(3.5, 1.8, .9, 0, TAU); ctx.fill(); };
+  if (e.type === 'grunt' || e.type === 'shade') {
+    const shade = e.type === 'shade';
+    o.extra = () => { const [hx, hy] = o.armR, a = st === 'stag' || st === 'parried' ? 2.6 : wa; ctx.strokeStyle = shade ? '#c8b8ff' : '#7d7466'; ctx.lineWidth = 2.6; line(hx, hy, hx + Math.cos(a) * 17, hy + Math.sin(a) * 17); };
+    o.top = () => { ctx.fillStyle = shade ? '#e8dcff' : '#ff3a2a'; ctx.beginPath(); ctx.arc(3.5, -1.8, .9, 0, TAU); ctx.arc(3.5, 1.8, .9, 0, TAU); ctx.fill(); };
   } else if (e.type === 'archer') {
     const drawing = e.atk && e.atk.ph === 'w', k = drawing ? clamp(e.atk.t / .9, 0, 1) : 0;
     o.armL = [12, 0]; o.armR = [9 - 8 * k, 1];
@@ -252,6 +253,25 @@ function drawEnemy(e) {
     o.top = () => { // helm berjambul
       ctx.strokeStyle = glow; ctx.lineWidth = 1.6; line(3.5, 0, 6, 0);
       ctx.strokeStyle = e.p2 ? '#a070ff' : '#b84a3a'; ctx.lineWidth = 2.2; line(-1, 0, -8, Math.sin(G.t * 5) * 1.5);
+    };
+  } else if (e.type === 'snuffer') {
+    const beam = e.atk && e.atk.def === DEF.vBeam && e.atk.ph !== 'r';
+    o.stride = 0; o.z = 8 + Math.sin(G.t * 2) * 3;              // melayang
+    o.armL = beam ? [12, -3] : [6, -11]; o.armR = beam ? [12, 3] : [6, 11];
+    o.under = () => { // jubah gelap dengan lingkar asap
+      ctx.fillStyle = 'rgba(16,10,30,.85)'; ctx.beginPath(); ctx.arc(-2, 0, 11, 0, TAU); ctx.fill();
+      ctx.strokeStyle = `rgba(184,160,255,${.4 + Math.sin(G.t * 3) * .2})`; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(-2, 0, 13 + Math.sin(G.t * 2) * 1.5, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = col; ctx.lineWidth = e.lw;
+    };
+    o.extra = () => { // bara padam di kedua tangan
+      for (const [hx, hy] of [o.armL, o.armR]) {
+        ctx.fillStyle = '#1a1030'; ctx.beginPath(); ctx.arc(hx + 1.5, hy, 3.4, 0, TAU); ctx.fill();
+        ctx.strokeStyle = e.p2 ? '#d8c8ff' : '#9a88e8'; ctx.lineWidth = 1.2; ctx.stroke();
+      }
+    };
+    o.top = () => { // mahkota api hitam
+      ctx.strokeStyle = e.p2 ? '#d8c8ff' : '#7a68c8'; ctx.lineWidth = 1.6;
+      for (let k = -2; k <= 2; k++) line(-1, k * 2.4, -6 - Math.abs(Math.sin(G.t * 7 + k)) * 3, k * 3.4);
     };
   }
   drawStick(o);

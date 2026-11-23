@@ -5,6 +5,10 @@ function spawnProj(owner, x, y, ang, sp, dmg, o) {
 }
 function updateProj(dt) {
   for (const pr of L.projectiles) {
+    if (pr.homing && pr.owner === 'e') { // berbelok pelan ke pemain terdekat (berhenti mengejar setelah dipantulkan)
+      let tg = null, bd = 1e9; for (const p of players) if (p.alive) { const d = dist(p, pr); if (d < bd) { bd = d; tg = p; } }
+      if (tg) { const sp = Math.hypot(pr.vx, pr.vy), g = turnTo(Math.atan2(pr.vy, pr.vx), angTo(pr, tg), pr.homing * dt); pr.vx = Math.cos(g) * sp; pr.vy = Math.sin(g) * sp; }
+    }
     pr.x += pr.vx * dt; pr.y += pr.vy * dt; pr.life -= dt;
     if (pr.kind === 'orb' && Math.random() < .5) part(pr.x, pr.y, rand(-10, 10), rand(-10, 10), .35, pr.owner === 'p' ? '#9ff' : (pr.col || '#ff8a3a'), 2.5, true);
     if (pr.full && Math.random() < .7) part(pr.x, pr.y, 0, 0, .25, '#ffe9a8', 2, true);

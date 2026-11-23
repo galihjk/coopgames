@@ -100,11 +100,17 @@ function botThreat(b) {
     else if (d === DEF.xHook) line(290, 12, 1500);
     else if (d === DEF.kDash) line(300, e.r, 620);
     else if (d === DEF.k3) line(150, 10, 900);
+    else if (d === DEF.vBeam) { // sinar berputar: hitung kapan sinar menyapu posisi bot, lalu guling menembusnya
+      if (a.ph !== 'a') continue;
+      const sp = e.p2 ? 1.05 : .78, diff = angDiff(a.ang, angTo(e, b)) * a.dir;
+      if (Math.hypot(ox, oy) < (a.len || 460) + pad && diff > -.15 && diff < .9)
+        add(a, Math.max(0, diff) / sp, Math.sin(a.ang) * a.dir, -Math.cos(a.ang) * a.dir, e, { walk: false, ring: true });
+    }
     else if (d === DEF.xSpin) {
       if (Math.hypot(ox, oy) < 96 + pad) add(a, left, ox, oy, e, { block: a.ph === 'w' }); // saat berputar: menjauh, jangan bertahan
-    } else if (d === DEF.bSlam || d === DEF.wOverhead || d === DEF.qNova || d === DEF.xSlam) {
+    } else if (d === DEF.bSlam || d === DEF.wOverhead || d === DEF.qNova || d === DEF.xSlam || d === DEF.vNova) {
       const off = d === DEF.bSlam ? 36 : d === DEF.wOverhead ? 70 : d === DEF.xSlam ? 80 : 0;
-      const rad = d === DEF.bSlam ? 62 : d === DEF.wOverhead ? 46 : d === DEF.xSlam ? 60 : 118;
+      const rad = d === DEF.bSlam ? 62 : d === DEF.wOverhead ? 46 : d === DEF.xSlam ? 60 : d === DEF.vNova ? 110 : 118;
       const cx = fx(e, off), cy = fy(e, off);
       if (Math.hypot(b.x - cx, b.y - cy) < rad + pad) add(a, left, b.x - cx, b.y - cy, { x: cx, y: cy });
     } else {

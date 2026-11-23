@@ -175,14 +175,24 @@ function emberBg(dt) {
 function menuButtons() {
   const u = U, LW = H, LH = W;
   if (G.mode === 'title') {
-    const n = LEVELS.length, gap = 10 * u, bw = Math.min(120 * u, (LW * .92 - gap * (n - 1)) / n), bh = 44 * u, y = LH * .79;
-    const tw = bw * n + gap * (n - 1), x0 = LW / 2 - tw / 2;
-    return [{ id: 'mode', x: x0, y: y - 50 * u, w: tw, h: 38 * u, label: G.solo ? '◂  SOLO + BOT  ▸' : '◂  2 PEMAIN  ▸' },
-      ...LEVELS.map((_, k) => ({ id: 'lv', lv: k, x: x0 + k * (bw + gap), y, w: bw, h: bh, label: 'LEVEL ' + (k + 1), done: SAVE.cleared.includes(k) }))];
+    // pemilih level: ◂ [LEVEL n · nama] ▸, titik progres, lalu MULAI
+    const bw = Math.min(300 * u, LW * .86), x0 = LW / 2 - bw / 2, y0 = TITLE_Y(LH) + 52 * u, aw = 46 * u;
+    return [
+      { id: 'mode', x: x0, y: y0, w: bw, h: 38 * u, label: G.solo ? 'MODE: SOLO + BOT  ⇄' : 'MODE: 2 PEMAIN  ⇄', small: true },
+      { id: 'prev', x: x0, y: y0 + 46 * u, w: aw, h: 50 * u, label: '◂' },
+      { id: 'lvl', x: x0 + aw + 8 * u, y: y0 + 46 * u, w: bw - 2 * aw - 16 * u, h: 50 * u, label: 'LEVEL ' + (G.sel + 1), sub: LEVELS[G.sel].name, done: SAVE.cleared.includes(G.sel) },
+      { id: 'next', x: x0 + bw - aw, y: y0 + 46 * u, w: aw, h: 50 * u, label: '▸' },
+      { id: 'start', x: x0 + bw * .2, y: y0 + 116 * u, w: bw * .6, h: 44 * u, label: 'MULAI', hl: true },
+    ];
   }
   if (G.mode === 'pause') {
-    const bw = 120 * u, bh = 44 * u, y = LH * .77;
-    return [{ id: 'resume', x: LW / 2 - bw - 8 * u, y, w: bw, h: bh, label: 'LANJUT' }, { id: 'quit', x: LW / 2 + 8 * u, y, w: bw, h: bh, label: 'KE JUDUL' }];
+    if (G.solo) { // satu pemain: separuh atas layar kosong
+      const bw = 120 * u, bh = 44 * u, y = LH * .3 + 30 * u;
+      return [{ id: 'resume', x: LW / 2 - bw - 8 * u, y, w: bw, h: bh, label: 'LANJUT' }, { id: 'quit', x: LW / 2 + 8 * u, y, w: bw, h: bh, label: 'KE JUDUL' }];
+    }
+    // dua pemain: kolom kiri, supaya tidak menutupi petunjuk tombol di kanan
+    const bw = 96 * u, bh = 40 * u, x = 12 * u, y = LH / 2 + 44 * u;
+    return [{ id: 'resume', x, y, w: bw, h: bh, label: 'LANJUT' }, { id: 'quit', x, y: y + bh + 8 * u, w: bw, h: bh, label: 'KE JUDUL' }];
   }
   if (G.mode === 'win' && G.winT > 2) return [{ id: 'title', x: LW / 2 - 70 * u, y: LH * .82, w: 140 * u, h: 44 * u, label: 'KE JUDUL' }];
   return [];
@@ -190,13 +200,25 @@ function menuButtons() {
 function drawMenuButtons() {
   for (const i of frames()) inFrame(i, () => {
     for (const b of menuButtons()) {
-      rr(b.x, b.y, b.w, b.h, 6 * U); ctx.fillStyle = 'rgba(30,20,16,.85)'; ctx.fill();
-      ctx.strokeStyle = 'rgba(232,217,176,.6)'; ctx.lineWidth = 1.5; ctx.stroke();
-      txt(b.label, b.x + b.w / 2, b.y + b.h / 2, 15 * U, '#e8d9b0', 'center', SERIF, '400');
+      const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+      rr(b.x, b.y, b.w, b.h, 6 * U); ctx.fillStyle = b.hl ? 'rgba(96,42,14,.92)' : 'rgba(30,20,16,.85)'; ctx.fill();
+      ctx.strokeStyle = b.hl ? '#ffb347' : 'rgba(232,217,176,.6)'; ctx.lineWidth = b.hl ? 2 : 1.5; ctx.stroke();
+      if (b.sub) { txt(b.label, cx, cy - 8 * U, 16 * U, '#e8d9b0', 'center', SERIF, '400'); txt(b.sub, cx, cy + 11 * U, 10.5 * U, '#cfc3a8', 'center', SERIF, 'italic 400'); }
+      else txt(b.label, cx, cy, (b.small ? 13 : 15) * U, b.hl ? '#ffe2b0' : '#e8d9b0', 'center', b.small ? 'sans-serif' : SERIF, b.small ? '600' : '400');
       if (b.done) txt('✓', b.x + b.w - 12 * U, b.y + 12 * U, 11 * U, '#ffb347');
+      if (b.id === 'lvl') { // titik progres: terisi = sudah tamat, cincin = sedang dipilih
+        const n = LEVELS.length, gap = 14 * U, y = b.y + b.h + 10 * U;
+        for (let k = 0; k < n; k++) {
+          const x = cx + (k - (n - 1) / 2) * gap;
+          ctx.fillStyle = SAVE.cleared.includes(k) ? '#ffb347' : 'rgba(232,217,176,.25)'; ctx.beginPath(); ctx.arc(x, y, 3 * U, 0, TAU); ctx.fill();
+          if (k === G.sel) { ctx.strokeStyle = '#fff1d0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, 5.5 * U, 0, TAU); ctx.stroke(); }
+        }
+      }
     }
   });
 }
+const TITLE_Y = LH => LH * .55;
+function pickLevel(d) { G.sel = (G.sel + d + LEVELS.length) % LEVELS.length; }
 function uiTap(q) {
   for (const i of frames()) {
     const f = screenToFrame(i, q);
@@ -204,7 +226,9 @@ function uiTap(q) {
       if (f.x >= b.x && f.x <= b.x + b.w && f.y >= b.y && f.y <= b.y + b.h) {
         Snd.swap();
         if (b.id === 'mode') toggleSolo();
-        else if (b.id === 'lv') startGame(b.lv);
+        else if (b.id === 'prev') pickLevel(-1);
+        else if (b.id === 'next') pickLevel(1);
+        else if (b.id === 'lvl' || b.id === 'start') startGame(G.sel);
         else if (b.id === 'resume') G.mode = 'play';
         else if (b.id === 'quit' || b.id === 'title') { G.mode = 'title'; Snd.music(false); }
         return;
@@ -221,8 +245,8 @@ function drawTitle() {
   // garis pembatas tengah (hanya mode 2 pemain)
   if (!G.solo) { ctx.strokeStyle = 'rgba(255,154,74,.15)'; ctx.lineWidth = 1; line(W / 2, H * .1, W / 2, H * .9); }
   for (const i of frames()) inFrame(i, (LW, LH) => {
-    txt('BARA KEMBAR', LW / 2, LH * .55, 34 * U, '#e8d9b0', 'center', SERIF, '400');
-    txt(G.solo ? 'satu jiwa, satu bara pendamping' : 'dua jiwa, satu nyala', LW / 2, LH * .55 + 28 * U, 13 * U, '#b8a888', 'center', SERIF, 'italic 400');
+    txt('BARA KEMBAR', LW / 2, TITLE_Y(LH), 34 * U, '#e8d9b0', 'center', SERIF, '400');
+    txt(G.solo ? 'satu jiwa, satu bara pendamping' : 'dua jiwa, satu nyala', LW / 2, TITLE_Y(LH) + 28 * U, 13 * U, '#b8a888', 'center', SERIF, 'italic 400');
     txt(G.solo ? 'Pegang HP tegak • Bot pemanah menjadi rekanmu' : 'Letakkan HP mendatar • P1 & P2 duduk berhadapan', LW / 2, LH * .94, 10.5 * U, 'rgba(220,210,190,.6)', 'center', 'sans-serif', '500');
   });
   drawMenuButtons();
@@ -230,7 +254,9 @@ function drawTitle() {
 function drawPause() {
   baseT(); ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(0, 0, W, H);
   for (const i of frames()) inFrame(i, (LW, LH) => {
-    txt('JEDA', LW / 2, LH * .66, 30 * U, '#e8d9b0', 'center', SERIF, '400');
+    if (G.solo) txt('JEDA', LW / 2, LH * .3, 30 * U, '#e8d9b0', 'center', SERIF, '400');
+    else txt('JEDA', 12 * U + 48 * U, LH / 2 + 22 * U, 24 * U, '#e8d9b0', 'center', SERIF, '400');
+    drawCallouts(players[i], LW, LH - 226 * U, 1, G.solo); // petunjuk tombol tetap terbaca saat jeda
   });
   drawMenuButtons();
 }

@@ -24,7 +24,9 @@ const KEYMAP = {
 addEventListener('keydown', e => {
   Snd.init();
   if (e.code === 'Escape' || e.code === 'KeyP') { togglePause(); return; }
-  if (G.mode === 'title' && (e.code === 'Enter' || e.code === 'Space')) { startGame(0); return; }
+  if (G.mode === 'title' && (e.code === 'Enter' || e.code === 'Space')) { startGame(G.sel); return; }
+  if (G.mode === 'title' && (e.code === 'ArrowLeft' || e.code === 'KeyA')) { pickLevel(-1); return; }
+  if (G.mode === 'title' && (e.code === 'ArrowRight' || e.code === 'KeyD')) { pickLevel(1); return; }
   if (G.mode === 'title' && /^Digit[1-9]$/.test(e.code) && +e.code[5] <= LEVELS.length) { startGame(+e.code[5] - 1); return; }
   if (G.mode === 'title' && e.code === 'KeyM') { toggleSolo(); return; }
   if (G.mode === 'win' && e.code === 'Enter') { G.mode = 'title'; return; }

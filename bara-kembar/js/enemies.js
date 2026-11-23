@@ -10,6 +10,8 @@ const ETYPE = {
   queen: { hp: 820, r: 20, speed: 64, poise: 130, aggro: 999, col: '#ff9a5c', sc: 2.0, lw: 3.4, boss: true },
   exec: { hp: 920, r: 24, speed: 66, poise: 170, aggro: 999, col: '#9fb0c4', sc: 2.3, lw: 4.0, boss: true },
   knight: { hp: 800, r: 15, speed: 92, poise: 115, aggro: 999, col: '#d8c8a0', sc: 1.75, lw: 3.2, boss: true },
+  snuffer: { hp: 1100, r: 21, speed: 58, poise: 200, aggro: 999, col: '#a898e8', sc: 2.15, lw: 3.6, boss: true },
+  shade: { hp: 60, r: 11, speed: 100, poise: 22, aggro: 999, col: '#9a88ff', sc: 1.1, lw: 2.2 }, // bayangan panggilan Sang Pemadam
 };
 function makeEnemy(type, x, y) {
   const d = ETYPE[type];
@@ -270,6 +272,55 @@ const DEF = {
       Snd.pillar();
     },
     tele: (e, a, p) => teleCircle(e.x, e.y, 70, p * .5) },
+
+  // ---- Sang Pemadam (level 5) ----
+  // sinar penyapu: berputar ±1.8 rad, berhenti di dinding; tembus dengan guling atau tahan dengan tameng
+  vBeam: { wind: 1.0, act: 2.4, rec: .9, track: 4, anim: [.3, -1.5, -1.5], cd: [.7, 1.1],
+    onStart: (e, a) => { a.dir = Math.random() < .5 ? 1 : -1; Snd.bossTele(); },
+    onAct: (e, a) => { a.ang = e.face - a.dir * .9; a.len = 0; Snd.fire(); },
+    actUpd: (e, a, dt) => {
+      a.ang += a.dir * (e.p2 ? 1.05 : .78) * dt; e.face = a.ang;
+      const cx = Math.cos(a.ang), cy = Math.sin(a.ang);
+      let len = 0; while (len < 460 && !tileSolidW(e.x + cx * len, e.y + cy * len)) len += 10; a.len = len;
+      for (const p of players) {
+        if (!p.alive || a.hit.has(p)) continue;
+        const ox = p.x - e.x, oy = p.y - e.y, al = ox * cx + oy * cy, pe = Math.abs(-ox * cy + oy * cx);
+        if (al > 0 && al < a.len && pe < 9 + p.r && hurtPlayer(p, 22, e, { knock: 220, guard: 2 }) !== 'miss') a.hit.add(p);
+      }
+      if (Math.random() < .7) { const k = Math.random() * a.len; part(e.x + cx * k, e.y + cy * k, rand(-20, 20), rand(-20, 20), .4, '#d8c8ff', 2, true); }
+    },
+    tele: (e, a, p) => { const s = e.face - a.dir * .9; teleLine(e.x, e.y, s, 460, 18, p); ctx.strokeStyle = `rgba(255,90,60,${.2 + .3 * p})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(e.x, e.y, 160, Math.min(s, s + a.dir * 1.8), Math.max(s, s + a.dir * 1.8)); ctx.stroke(); },
+    teleAct: (e, a) => {
+      const x1 = e.x + Math.cos(a.ang) * a.len, y1 = e.y + Math.sin(a.ang) * a.len;
+      ctx.lineCap = 'round'; ctx.strokeStyle = 'rgba(190,160,255,.35)'; ctx.lineWidth = 24; line(e.x, e.y, x1, y1);
+      ctx.strokeStyle = '#f4ecff'; ctx.lineWidth = 6; line(e.x, e.y, x1, y1);
+    } },
+  // bola padam: melayang pelan dan mengejar pemain terdekat (bisa dipantulkan)
+  vOrbs: { wind: .7, act: .05, rec: .7, anim: [.3, -3, -3], cd: [.6, 1],
+    onAct: e => { const n = e.p2 ? 6 : 4, o = Math.random() * TAU; for (let k = 0; k < n; k++) { const g = o + k / n * TAU; spawnProj('e', e.x + Math.cos(g) * 22, e.y + Math.sin(g) * 22, g, 120, 16, { kind: 'orb', col: '#b8a0ff', homing: 1.5, parryable: true, life: 4.5, r: 8, src: e }); } Snd.fire(); },
+    tele: (e, a, p) => teleCircle(e.x, e.y, 40, p) },
+  // hujan bara: pilar api berjatuhan di sekitar pemain
+  vRain: { wind: .6, act: .05, rec: .7, anim: [.3, -3, -3], cd: [.6, 1],
+    onAct: e => {
+      const alive = players.filter(p => p.alive); if (!alive.length) return;
+      for (let k = 0; k < (e.p2 ? 10 : 7); k++) { const p = alive[k % alive.length], x = p.x + (k < alive.length ? 0 : rand(-110, 110)), y = p.y + (k < alive.length ? 0 : rand(-110, 110)); if (!tileSolidW(x, y)) L.hazards.push({ kind: 'pillar', x, y, r: 36, t: 0, delay: .8 + k * .14 }); }
+      Snd.bossTele();
+    } },
+  vNova: { wind: .8, act: .1, rec: .8, anim: [.3, -3.0, 3.0], cd: [.4, .8],
+    onAct: e => { aoe(e.x, e.y, 110, 24, { knock: 340, guard: 1.8, stagger: .5 }); slamFx(e.x, e.y, 110, '#b8a0ff'); L.hazards.push({ kind: 'ring', x: e.x, y: e.y, rad: 40, speed: 230, max: 300, w: 14, hit: new Set(), dmg: 12 }); },
+    tele: (e, a, p) => teleCircle(e.x, e.y, 110, p), next: () => Math.random() < .5 ? DEF.qTele : null },
+  // membelah bayangan (fase 2): cahaya meredup + memanggil dua bayangan
+  vSplit: { wind: 1.2, act: .1, rec: .5, anim: [-3, -3, -3], cd: [.4, .6],
+    onStart: e => { e.inv = true; Snd.roar(); shake(9); },
+    onAct: e => {
+      e.inv = false; L.eclipse = Math.min(.12, (L.eclipse || 0) + .06);
+      for (let k = 0; k < 2; k++) {
+        const t = L.arenaTiles.filter(t => players.every(p => dist(t, p) > 150))[(Math.random() * 40) | 0] || L.arenaTiles[0];
+        const g = makeEnemy('shade', t.x, t.y); g.summon = true; g.state = 'chase'; g.alpha = .85; L.enemies.push(g);
+        for (let j = 0; j < 14; j++) part(t.x, t.y, rand(-40, 40), rand(-80, -10), rand(.5, 1), '#b8a0ff', 2.5, true);
+      }
+    },
+    tele: (e, a, p) => teleCircle(e.x, e.y, 60, p * .4) },
 };
 function startAtk(e, def, tgt) {
   e.state = 'atk'; e.atk = { def, ph: 'w', t: 0, tgt: tgt || e.tgt, hit: new Set() };
@@ -404,8 +455,24 @@ const AI = {
     if (moveCircle(e, Math.cos(mvA) * e.speed * e.spdMul * dt, Math.sin(mvA) * e.speed * e.spdMul * dt)) e.strafe *= -1;
     if (Math.random() < .008) e.strafe *= -1;
     e.walk += e.speed * dt * .1;
+  },
+  snuffer(e, t, dt) {
+    if (!e.p2 && e.hp < e.maxHp * .5) { e.p2 = true; e.spdMul = 1.15; startAtk(e, DEF.vSplit, t); banner('', 'Cahaya mulai padam...', 2.2, '#b8a0ff', false); return; }
+    const d = dist(e, t), a = angTo(e, t);
+    e.face = turnTo(e.face, a, 4 * dt);
+    if (e.cd <= 0) {
+      const r = Math.random();
+      if (d < 110) { startAtk(e, r < .65 ? DEF.vNova : DEF.qTele, t); return; }
+      if (e.p2 && r < .1 && !L.enemies.some(o => o.summon && !o.dead)) { startAtk(e, DEF.vSplit, t); return; }
+      startAtk(e, r < .35 ? DEF.vBeam : r < .6 ? DEF.vOrbs : r < .88 ? DEF.vRain : DEF.qTele, t);
+      return;
+    }
+    const mvA = d < 170 ? a + Math.PI : d > 300 ? a : a + e.strafe * Math.PI / 2; // menjaga jarak, melayang memutar
+    if (moveCircle(e, Math.cos(mvA) * e.speed * e.spdMul * dt, Math.sin(mvA) * e.speed * e.spdMul * dt)) e.strafe *= -1;
+    if (Math.random() < .006) e.strafe *= -1;
   }
 };
+AI.shade = AI.grunt; // bayangan bertarung seperti prajurit, tapi lebih cepat
 function updateEnemy(e, dt) {
   e.flash -= dt; e.showHp -= dt;
   e.hpLag = e.hpLag > e.hp ? Math.max(e.hp, e.hpLag - e.maxHp * .4 * dt) : e.hp;

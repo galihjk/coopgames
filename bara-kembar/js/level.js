@@ -3,6 +3,7 @@
 //  LEVEL
 // =====================================================================
 function loadLevel(idx) {
+  G.sel = idx; // layar judul ikut menunjuk level yang sedang/terakhir dimainkan
   const def = LEVELS[idx], rows = def.map;
   const h = rows.length, w = Math.max(...rows.map(r => r.length));
   const grid = new Uint8Array(w * h);
