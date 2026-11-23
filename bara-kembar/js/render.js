@@ -152,11 +152,34 @@ function drawPlayer(p) {
   if (p.parryFx > 0) { ctx.strokeStyle = `rgba(255,250,220,${p.parryFx * 2})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, 20 + (.4 - p.parryFx) * 80, 0, TAU); ctx.stroke(); }
 }
 
+// totem bara: tiang batu dengan api di puncak (bukan stickman)
+function drawTotem(e) {
+  const k = e.dead ? 1 - clamp(e.deadT / 1.2, 0, 1) : 1, hot = e.atk && e.atk.ph === 'w' && Math.floor(G.t * 14) % 2 === 0;
+  ctx.translate(e.x, e.y); ctx.scale(1, k);
+  ctx.fillStyle = e.flash > 0 ? '#fff' : '#4a3e34'; ctx.fillRect(-9, -26, 18, 30);
+  ctx.strokeStyle = e.col; ctx.lineWidth = 1.5; ctx.strokeRect(-9, -26, 18, 30);
+  ctx.strokeStyle = 'rgba(0,0,0,.45)'; line(-9, -16, 9, -16); line(-9, -6, 9, -6);
+  ctx.fillStyle = hot ? '#ff6a50' : '#ffb347'; ctx.globalAlpha *= .8 + Math.sin(G.t * 10 + e.x) * .2;
+  ctx.beginPath(); ctx.ellipse(0, -31, 6, 9 + Math.sin(G.t * 12 + e.y) * 2, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#fff1c0'; ctx.beginPath(); ctx.ellipse(0, -30, 2.5, 4.5, 0, 0, TAU); ctx.fill();
+}
+// tali cahaya ke totem + gelembung perisai di sekitar Sang Penjaga Lentera
+function drawLanternAura(e) {
+  if (!e.shield) return;
+  for (const t of e.totems || []) if (!t.dead) {
+    ctx.strokeStyle = `rgba(255,214,120,${.25 + Math.sin(G.t * 6 + t.x) * .12})`; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); ctx.lineDashOffset = -G.t * 30;
+    line(t.x, t.y - 30, e.x, e.y); ctx.setLineDash([]);
+  }
+  ctx.strokeStyle = `rgba(255,226,150,${.45 + Math.sin(G.t * 4) * .15})`; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 16, 0, TAU); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,214,120,.08)'; ctx.fill();
+}
 function drawEnemy(e) {
   const fade = e.dead ? clamp(1 - e.deadT / 1.5, 0, 1) : 1;
   ctx.save(); ctx.globalAlpha = fade * e.alpha;
   const sh = e.r * (1 - Math.min(.5, e.z / 140));
   ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(e.x, e.y, sh + 2, sh, 0, 0, TAU); ctx.fill();
+  if (e.type === 'totem') { drawTotem(e); ctx.restore(); return; }
+  if (e.type === 'lantern' && !e.dead) drawLanternAura(e);
   if (e.dead) { // tergeletak
     ctx.translate(e.x, e.y); ctx.rotate(e.face); ctx.scale(e.sc, e.sc); ctx.strokeStyle = '#3a3036'; ctx.lineWidth = e.lw; ctx.lineCap = 'round';
     line(-10, 0, 8, 0); line(-4, 0, 2, -9); line(-4, 0, -9, 8); line(8, 0, 13, 5); line(8, 0, 14, -4);
@@ -272,6 +295,16 @@ function drawEnemy(e) {
       ctx.fillStyle = e.p2 ? '#ffd27a' : '#d8e0ea'; ctx.beginPath(); ctx.arc(hx + 12, hy, 3 + Math.sin(G.t * 8) * .8, 0, TAU); ctx.fill();
     };
     o.top = () => { ctx.fillStyle = '#2a2a32'; ctx.beginPath(); ctx.arc(.5, 0, 6, Math.PI * .5, Math.PI * 1.5); ctx.fill(); }; // tudung
+  } else if (e.type === 'lantern') { // Sang Penjaga Lentera: tongkat dengan lentera besar
+    o.armL = [9, -4]; o.armR = [9, 4];
+    o.extra = () => {
+      const lit = e.shield ? '#ffe9a8' : '#ff9a4a', sw = Math.sin(G.t * 2) * 2;
+      ctx.strokeStyle = '#6a5a40'; ctx.lineWidth = 2.6; line(4, -6, 22, 0); line(4, 6, 22, 0);
+      ctx.strokeStyle = '#8a7a58'; ctx.lineWidth = 1.4; line(22, 0, 24, sw);
+      ctx.fillStyle = 'rgba(20,14,10,.9)'; ctx.fillRect(20, sw - 5, 9, 10); ctx.strokeStyle = '#b8a070'; ctx.lineWidth = 1.2; ctx.strokeRect(20, sw - 5, 9, 10);
+      ctx.fillStyle = lit; ctx.globalAlpha = .75 + Math.sin(G.t * 9) * .2; ctx.beginPath(); ctx.arc(24.5, sw, 3.2, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+    };
+    o.top = () => { ctx.fillStyle = '#2a2018'; ctx.beginPath(); ctx.arc(.5, 0, 6.3, Math.PI * .4, Math.PI * 1.6); ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 1.2; ctx.stroke(); };
   } else if (e.type === 'snuffer') {
     const beam = e.atk && e.atk.def === DEF.vBeam && e.atk.ph !== 'r';
     o.stride = 0; o.z = 8 + Math.sin(G.t * 2) * 3;              // melayang
@@ -437,6 +470,7 @@ function drawLighting() {
   for (const p of players) if (!p.dead) light(p.x, p.y, p.alive ? 230 : 120);
   for (const b of L.bonfires) light(b.x, b.y, b.lit ? 260 + Math.sin(G.t * 7) * 8 : 70, b.lit ? 1 : .5);
   for (const pr of L.projectiles) if (pr.kind === 'orb') light(pr.x, pr.y, 70, .8);
+  for (const e of L.enemies) if (!e.dead && (e.type === 'totem' || e.type === 'lantern')) light(e.x, e.y, e.type === 'totem' ? 110 : 190, .8); // totem & lentera menerangi sekitar
   for (const h of L.hazards) if (h.kind === 'pillar') light(h.x, h.y, h.done ? 140 : 60, h.done ? 1 : .4);
   if (L.portal) light(L.portal.x, L.portal.y, 200);
   if (L.bossState === 'active') { light(L.bossSpawn.x, L.bossSpawn.y, 520, .55); for (const b of aliveBosses()) light(b.x, b.y, 160, .6); }

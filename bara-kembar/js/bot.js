@@ -23,7 +23,7 @@ function resetBot() {
     humanWeapon: null, want: 'bow', swapT: 0, swapTap: false,
     healHold: false, rollCd: 0, blockT: 0, blockSrc: null, daze: 0, recover: false,
     charge: .4, shotCd: 0, chainGo: false, early: false, prevState: '',
-    strafe: 1, strafeT: 0, lastX: 0, lastY: 0, stuckT: 0,
+    strafe: 1, strafeT: 0, lastX: 0, lastY: 0, stuckT: 0, farT: 0,
   };
 }
 resetBot();
@@ -74,7 +74,7 @@ function botNotice(key) {
 //          block: bisa ditangkis, walk: bisa dihindari dengan berjalan, ring, lead: waktu reaksi }
 let BOT_ARC = null; // serangan tebasan: [jangkauan, lebar busur]
 function botThreat(b) {
-  if (!BOT_ARC) BOT_ARC = new Map([[DEF.gSlash, [40, 2.0]], [DEF.gHeavy, [46, 2.2]], [DEF.bSweep, [60, 2.8]], [DEF.wSweep, [78, 2.9]], [DEF.wSweep2, [78, 2.9]], [DEF.xSwing, [84, 2.6]], [DEF.xSwing2, [84, 2.6]], [DEF.k1, [64, 2.2]], [DEF.k2, [64, 2.2]]]);
+  if (!BOT_ARC) BOT_ARC = new Map([[DEF.gSlash, [40, 2.0]], [DEF.gHeavy, [46, 2.2]], [DEF.bSweep, [60, 2.8]], [DEF.wSweep, [78, 2.9]], [DEF.wSweep2, [78, 2.9]], [DEF.xSwing, [84, 2.6]], [DEF.xSwing2, [84, 2.6]], [DEF.k1, [64, 2.2]], [DEF.k2, [64, 2.2]], [DEF.lSweep, [92, 3.0]]]);
   let best = null;
   const add = (key, t, fx, fy, src, o = {}) => {
     if (best && best.t <= t) return;
@@ -146,12 +146,24 @@ function botTarget(b, h, melee) {
     const d = dist(b, e);
     if (melee ? d > 360 || (d > 160 && !los(b, e)) : d > 430 || !los(b, e)) continue;
     let s = melee ? d * .5 + (h.alive ? dist(h, e) * .5 : d * .5) : d;   // pedang: lindungi rekan
+    if (e.shield) s += 400;                                             // bos berperisai → incar totem dulu
     if (e.tgt === b) s -= 90;
     if (h.alive && (melee ? e.tgt === h : dist(h, e) < 130)) s -= 70;
     if (e.state === 'idle' && h.alive && dist(h, e) > 260) s += 250;    // jangan memancing musuh jauh
     if (s < bs) { bs = s; best = e; }
   }
   return best;
+}
+
+function botWarp(b, h) {
+  for (let r = 40; r <= 120; r += 20) for (let k = 0; k < 8; k++) {
+    const g = k / 8 * TAU, x = h.x + Math.cos(g) * r, y = h.y + Math.sin(g) * r;
+    if (tileSolidW(x, y) || !los(h, { x, y })) continue;
+    for (let j = 0; j < 14; j++) part(b.x, b.y, rand(-40, 40), rand(-70, -10), rand(.4, .8), '#ffb35c', 2.5, true);
+    b.x = x; b.y = y; b.kx = b.ky = 0; resolveCircle(b);
+    for (let j = 0; j < 18; j++) part(x, y, rand(-50, 50), rand(-80, -10), rand(.4, .9), '#ffd27a', 2.5, true);
+    Snd.heal(); return;
+  }
 }
 
 // ---------- otak per frame (dipanggil dari update, sebelum updatePlayer) ----------
@@ -177,6 +189,11 @@ function botUpdate(b, h, dt) {
     brain.swapT = rand(.3, 1.2) + (1 - s);
   }
   const sword = b.weapon === 'sword';
+
+  // jaring pengaman: tertinggal jauh cukup lama (dan tidak sedang diincar musuh) → muncul di dekat rekan
+  const busy = L.enemies.some(e => !e.dead && e.tgt === b && dist(e, b) < 260);
+  brain.farT = h.alive && dist(b, h) > 420 && !busy ? brain.farT + dt : 0;
+  if (brain.farT > 4) { brain.farT = 0; botWarp(b, h); return; }
 
   // 1) bertahan
   const th = botThreat(b);

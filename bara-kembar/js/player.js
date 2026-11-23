@@ -55,7 +55,8 @@ applyColors();
 function sepVal(a, b) { const dx = (a.x - b.x) / LEASH.x, dy = (a.y - b.y) / LEASH.y; return dx * dx + dy * dy; }
 function movePlayer(p, dx, dy) {
   const q = players[1 - p.i];
-  if (q.dead) { moveCircle(p, dx, dy); return; }
+  // bot (mode solo) tidak terikat tali: ia kadang harus menjauh dulu (mis. memutar lewat tangga) untuk menyusul
+  if (q.dead || (G.solo && p.i === 1)) { moveCircle(p, dx, dy); return; }
   const before = sepVal(p, q);
   const ox = p.x, oy = p.y;
   moveCircle(p, dx, dy);

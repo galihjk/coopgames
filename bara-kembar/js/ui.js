@@ -82,7 +82,7 @@ function drawHUD(p, LW, LH) {
   const bosses = L.bossState === 'active' ? aliveBosses() : [];
   bosses.forEach((b, k) => {
     const by = base - (46 + k * 28) * u, bbw = Math.min(300 * u, LW * .82), bx = LW / 2 - bbw / 2;
-    txt(BOSS_NAMES[b.type], bx, by - 9 * u, 12 * u, b.p2 && L.bosses.length > 1 ? '#ff9a6a' : '#e8d9b0', 'left', SERIF, '400');
+    txt(BOSS_NAMES[b.type] + (b.shield ? '  ·  terlindung perisai' : ''), bx, by - 9 * u, 12 * u, b.p2 && L.bosses.length > 1 ? '#ff9a6a' : '#e8d9b0', 'left', SERIF, '400');
     ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(bx - 2, by - 2, bbw + 4, 9 * u);
     ctx.fillStyle = '#e8d0a0'; ctx.fillRect(bx, by, bbw * b.hpLag / b.maxHp, 5 * u);
     ctx.fillStyle = '#9a1c16'; ctx.fillRect(bx, by, bbw * b.hp / b.maxHp, 5 * u);

@@ -96,7 +96,7 @@ function separate() {
   for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
     const a = all[i], b = all[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy), m = a.r + b.r;
     if (d < m && d > .01) {
-      const o = (m - d) / d; const wa = a.maxPoise ? (a.boss ? .1 : .4) : .6, wb = b.maxPoise ? (b.boss ? .1 : .4) : .6;
+      const o = (m - d) / d; const wt = o => o.maxPoise ? (o.type === 'totem' ? .01 : o.boss ? .1 : .4) : .6, wa = wt(a), wb = wt(b); // totem nyaris tak tergeser
       const s = wa + wb;
       a.x -= dx * o * wa / s; a.y -= dy * o * wa / s; b.x += dx * o * wb / s; b.y += dy * o * wb / s;
       resolveCircle(a); resolveCircle(b);

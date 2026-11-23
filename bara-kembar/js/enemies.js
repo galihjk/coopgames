@@ -13,6 +13,8 @@ const ETYPE = {
   snuffer: { hp: 1100, r: 21, speed: 58, poise: 200, aggro: 999, col: '#a898e8', sc: 2.15, lw: 3.6, boss: true },
   ember: { hp: 620, r: 16, speed: 84, poise: 110, aggro: 999, col: '#ff8a4a', sc: 1.8, lw: 3.2, boss: true }, // kembar: Sang Sulut (dekat)
   ash: { hp: 560, r: 16, speed: 62, poise: 100, aggro: 999, col: '#b8c4d0', sc: 1.8, lw: 3.0, boss: true },   // kembar: Sang Abu (jauh)
+  lantern: { hp: 850, r: 22, speed: 50, poise: 220, aggro: 999, col: '#ffd27a', sc: 2.2, lw: 3.8, boss: true }, // Sang Penjaga Lentera
+  totem: { hp: 90, r: 14, speed: 0, poise: 999, aggro: 999, col: '#c89a5a', sc: 1, lw: 2 },                       // totem bara: sumber perisai
   shade: { hp: 60, r: 11, speed: 100, poise: 22, aggro: 999, col: '#9a88ff', sc: 1.1, lw: 2.2 }, // bayangan panggilan Sang Pemadam
 };
 function makeEnemy(type, x, y) {
@@ -38,6 +40,11 @@ function pickTarget(e) {
 }
 function hurtEnemy(e, dmg, src, o = {}) {
   if (e.dead || e.inv || e.air) return;
+  if (e.shield) { // Sang Penjaga Lentera: serangan memantul selama totem bara masih berdiri
+    e.flash = .05; e.showHp = 2; Snd.block(); sparks(e.x - Math.cos(angTo(src, e)) * e.r, e.y - Math.sin(angTo(src, e)) * e.r, 6, '#ffe9a8');
+    for (const p of players) if (p.alive && (!p.msg || p.msg.t > 1.5)) msg(p, 'Terlindung perisai! Hancurkan totem bara dulu', 1.6);
+    return;
+  }
   const crit = e.state === 'parried' && o.melee;
   if (crit) dmg *= 3; else if (e.state === 'parried') dmg *= 1.5;
   e.hp -= dmg; e.flash = .12; e.showHp = 3;
@@ -46,7 +53,7 @@ function hurtEnemy(e, dmg, src, o = {}) {
   const a = angTo(src, e);
   if (crit) { Snd.crit(); hitStop(.16); shake(9); vib(60); sparks(e.x, e.y, 30, '#ff5b3a'); blood(e.x, e.y, a, 20, '#1a0f14'); }
   else { Snd.hit(); hitStop(o.melee ? .055 : .03); shake(o.melee ? 3 : 1.5); sparks(e.x - Math.cos(a) * e.r * .5, e.y - Math.sin(a) * e.r * .5, 8, '#ffe2b0'); blood(e.x, e.y, a, 5, '#1a0f14'); }
-  if (!e.boss) { const k = o.melee ? 120 : 60; e.kx += Math.cos(a) * k; e.ky += Math.sin(a) * k; }
+  if (!e.boss && e.type !== 'totem') { const k = o.melee ? 120 : 60; e.kx += Math.cos(a) * k; e.ky += Math.sin(a) * k; }
   if (e.hp <= 0) { killEnemy(e); return; }
   if (e.poise <= 0) {
     e.poise = e.maxPoise;
@@ -275,6 +282,24 @@ const DEF = {
     },
     tele: (e, a, p) => teleCircle(e.x, e.y, 70, p * .5) },
 
+  // ---- Sang Penjaga Lentera (level 7) ----
+  tShot: { wind: .8, act: .05, rec: .4, track: 3, anim: [0, 0, 0], cd: [2.6, 3.8], // tembakan totem
+    onAct: e => { spawnProj('e', e.x, e.y, e.face, 210, 14, { kind: 'orb', parryable: true, life: 3, r: 7, src: e }); Snd.fire(); },
+    tele: (e, a, p) => teleLine(e.x, e.y, e.face, 140, 3, p) },
+  lTotems: { wind: 1.0, act: .1, rec: .6, anim: [-3, -3, -3], cd: [.8, 1.2],
+    onStart: e => { Snd.roar(); shake(6); },
+    onAct: e => summonTotems(e),
+    tele: (e, a, p) => teleCircle(e.x, e.y, 70, p * .5) },
+  lSweep: { wind: .8, act: .16, rec: .7, track: 3.5, move: 60, anim: [.5, -2.4, 2.2], cd: [.5, .9],
+    hitFn: (e, a) => meleeArc(e, a, 92, 3.0, 28, { parryable: true, knock: 280 }), tele: (e, a, p) => teleArc(e.x, e.y, e.face, 92 + e.r, 3.0, p) },
+  lFlare: { wind: .9, act: .1, rec: .7, anim: [-2.6, -2.6, -2.6], cd: [.6, 1],
+    onAct: e => {
+      const n = e.p2 ? 12 : 9, o = Math.random() * TAU;
+      for (let k = 0; k < n; k++) spawnProj('e', e.x, e.y, o + k / n * TAU, 140, 14, { kind: 'orb', parryable: true, life: 3, r: 8, src: e });
+      L.hazards.push({ kind: 'ring', x: e.x, y: e.y, rad: 30, speed: 220, max: 300, w: 14, hit: new Set(), dmg: 12 }); Snd.pillar();
+    },
+    tele: (e, a, p) => teleCircle(e.x, e.y, 50, p) },
+
   // ---- Sang Pemadam (level 5) ----
   // sinar penyapu: berputar ±1.8 rad, berhenti di dinding; tembus dengan guling atau tahan dengan tameng
   vBeam: { wind: 1.0, act: 2.4, rec: .9, track: 4, anim: [.3, -1.5, -1.5], cd: [.7, 1.1],
@@ -475,6 +500,42 @@ const AI = {
   }
 };
 AI.shade = AI.grunt; // bayangan bertarung seperti prajurit, tapi lebih cepat
+// ---- Sang Penjaga Lentera (level 7): perisai aktif selama totem bara berdiri ----
+function summonTotems(e) {
+  e.totems = (e.totems || []).filter(t => !t.dead); // totem lama yang masih berdiri tetap dihitung
+  const n = (e.p2 ? 4 : 3) - e.totems.length;
+  for (let k = 0; k < n; k++) {
+    const g = k / n * TAU + Math.PI / 2 + rand(-.25, .25); let pos = null;
+    for (let r = 240; r >= 120 && !pos; r -= 30) { const x = e.x + Math.cos(g) * r, y = e.y + Math.sin(g) * r * .6; if (inArena({ x, y }) && !tileSolidW(x, y) && players.every(p => dist(p, { x, y }) > 50)) pos = { x, y }; }
+    pos = pos || L.arenaTiles[(Math.random() * L.arenaTiles.length) | 0];
+    const t = makeEnemy('totem', pos.x, pos.y); t.summon = true; t.state = 'chase'; t.cd = rand(1, 2.2); t.face = angTo(t, e) + Math.PI;
+    L.enemies.push(t); e.totems.push(t);
+    for (let j = 0; j < 16; j++) part(pos.x, pos.y, rand(-40, 40), rand(-90, -10), rand(.5, 1), '#ffd27a', 2.5, true);
+  }
+  e.shield = true; e.vulnT = 0; e.needTotems = false;
+}
+// dicek tiap frame (juga saat bos sedang menyerang): perisai runtuh begitu totem terakhir hancur
+function lanternTick(e, dt) {
+  if (!e.totems) return;
+  if (e.shield && !e.totems.some(o => !o.dead)) { e.shield = false; e.vulnT = e.p2 ? 12 : 14; banner('', 'Perisai lentera runtuh — serang sekarang!', 2.2, '#ffd27a', false); Snd.guardBreak(); shake(6); }
+  if (!e.shield && e.vulnT > 0) { e.vulnT -= dt; if (e.vulnT <= 0) e.needTotems = true; } // celah habis → totem dipanggil lagi
+}
+AI.totem = (e, t, dt) => { // diam di tempat, sesekali menembak pemain terdekat
+  e.face = turnTo(e.face, angTo(e, t), 3 * dt);
+  if (e.cd <= 0 && los(e, t) && dist(e, t) < 420) startAtk(e, DEF.tShot, t);
+};
+AI.lantern = (e, t, dt) => {
+  if (!e.totems || e.needTotems) { startAtk(e, DEF.lTotems, t); return; } // awal pertarungan / celah habis → berperisai lagi
+  if (!e.p2 && e.hp < e.maxHp * .5) { e.p2 = true; e.spdMul = 1.15; startAtk(e, DEF.lTotems, t); banner('', 'Lentera menyala murka!', 2, '#ff9a4a', false); return; }
+  const d = dist(e, t), a = angTo(e, t);
+  e.face = turnTo(e.face, a, 3.5 * dt);
+  if (e.cd <= 0) {
+    const r = Math.random();
+    if (d < 110) { startAtk(e, r < .6 ? DEF.lSweep : DEF.xSlam, t); return; }
+    startAtk(e, r < .35 ? DEF.lFlare : r < .65 ? DEF.vBeam : DEF.xSlam, t); return;
+  }
+  if (d > 100) { moveCircle(e, Math.cos(a) * e.speed * e.spdMul * dt, Math.sin(a) * e.speed * e.spdMul * dt); e.walk += e.speed * dt * .08; }
+};
 // ---- Kembar Bara (level 6): dua bos sekaligus, saling melengkapi ----
 AI.ember = (e, t, dt) => { // Sang Sulut: menerjang, menebas, berputar
   const d = dist(e, t), a = angTo(e, t);
@@ -504,6 +565,7 @@ function updateEnemy(e, dt) {
   if (e.dead) { e.deadT += dt; return; }
   if (e.kx || e.ky) { moveCircle(e, e.kx * dt, e.ky * dt); const f = Math.pow(.001, dt); e.kx *= f; e.ky *= f; if (Math.hypot(e.kx, e.ky) < 5) e.kx = e.ky = 0; }
   if (e.boss && L.bossState !== 'active') return;
+  if (e.type === 'lantern') lanternTick(e, dt);
   e.cd -= dt; e.st += dt;
   if (e.state === 'stag' || e.state === 'parried') { if (e.st >= e.stagDur) { e.state = 'chase'; e.cd = Math.max(e.cd, .3); } return; }
   if (e.state === 'atk') { runAttack(e, dt); return; }
