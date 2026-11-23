@@ -195,6 +195,8 @@ function menuButtons(i) {
       { id: 'next', x: x0 + bw - aw, y: y0 + 46 * u, w: aw, h: 50 * u, label: '▸' },
       { id: 'start', x: x0 + bw * .2, y: y0 + 116 * u, w: bw * .6, h: 44 * u, label: open ? 'MULAI' : 'TERKUNCI', hl: open, off: !open },
       ...swatchRow(i, y0 + 198 * u),
+      // reset progres: ketuk sekali untuk bersiap, ketuk lagi dalam 3 detik untuk menghapus
+      ...(SAVE.cleared.length ? [{ id: 'reset', tiny: true, x: LW / 2 - 75 * u, y: LH - 56 * u, w: 150 * u, h: 24 * u, label: resetArmed() ? 'Ketuk lagi untuk mereset' : 'Reset progres level', warn: resetArmed() }] : []),
     ];
   }
   if (!host) return [];
@@ -222,6 +224,12 @@ function drawMenuButtons() {
   for (const i of frames()) inFrame(i, () => {
     for (const b of menuButtons(i)) {
       if (b.swatch) { drawSwatch(b); continue; }
+      if (b.tiny) {
+        rr(b.x, b.y, b.w, b.h, 5 * U); ctx.fillStyle = b.warn ? 'rgba(120,24,16,.9)' : 'rgba(30,20,16,.6)'; ctx.fill();
+        ctx.strokeStyle = b.warn ? '#ff7a5a' : 'rgba(232,217,176,.3)'; ctx.lineWidth = 1; ctx.stroke();
+        txt(b.label, b.x + b.w / 2, b.y + b.h / 2, 10 * U, b.warn ? '#ffd0c0' : 'rgba(232,217,176,.65)', 'center', 'sans-serif', '600');
+        continue;
+      }
       const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
       ctx.globalAlpha = b.off ? .55 : 1;
       rr(b.x, b.y, b.w, b.h, 6 * U); ctx.fillStyle = b.hl ? 'rgba(96,42,14,.92)' : 'rgba(30,20,16,.85)'; ctx.fill();
@@ -242,6 +250,11 @@ function drawMenuButtons() {
     }
   });
 }
+const resetArmed = () => G.resetArm != null && G.t - G.resetArm < 3;
+function resetProgress() {
+  if (!resetArmed()) { G.resetArm = G.t; return; }
+  G.resetArm = null; SAVE.cleared = []; saveGame(); G.sel = 0; G.resetDone = G.t; // warna & mode tetap
+}
 function pickLevel(d) { G.sel = (G.sel + d + LEVELS.length) % LEVELS.length; }
 function uiTap(q) {
   for (const i of frames()) {
@@ -251,6 +264,7 @@ function uiTap(q) {
         if (b.off || (b.swatch && !setColor(b.pi, b.k))) { Snd.fail(); return; }
         Snd.swap();
         if (b.id === 'mode') toggleSolo();
+        else if (b.id === 'reset') resetProgress();
         else if (b.id === 'prev') pickLevel(-1);
         else if (b.id === 'next') pickLevel(1);
         else if (b.id === 'lvl' || b.id === 'start') startGame(G.sel);
@@ -272,9 +286,12 @@ function drawTitle() {
   for (const i of frames()) inFrame(i, (LW, LH) => {
     txt('BARA KEMBAR', LW / 2, TITLE_Y(LH), 34 * U, '#e8d9b0', 'center', SERIF, '400');
     txt(G.solo ? 'satu jiwa, satu bara pendamping' : 'dua jiwa, satu nyala', LW / 2, TITLE_Y(LH) + 28 * U, 13 * U, '#b8a888', 'center', SERIF, 'italic 400');
-    txt(G.solo ? 'Pegang HP tegak • Bot menjadi rekanmu' : 'Letakkan HP mendatar • P1 & P2 duduk berhadapan', LW / 2, LH * .94, 10.5 * U, 'rgba(220,210,190,.6)', 'center', 'sans-serif', '500');
+    txt(G.solo ? 'Pegang HP tegak • Bot menjadi rekanmu' : i === 0 ? 'Letakkan HP mendatar • kamu P1, rekanmu (P2) di seberang' : 'Kamu P2 • P1 di seberang yang memilih mode & level', LW / 2, LH - 16 * U, 10.5 * U, 'rgba(220,210,190,.6)', 'center', 'sans-serif', '500');
     const y0 = titleY0(LH);
-    if (i === 0) txt('Warnamu', LW / 2, y0 + 176 * U, 10 * U, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '600');
+    if (i === 0) {
+      txt('Warnamu', LW / 2, y0 + 176 * U, 10 * U, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '600');
+      if (G.resetDone != null && G.t - G.resetDone < 2.5) txt('Progres direset — level 1–' + OPEN_LEVELS + ' terbuka', LW / 2, LH - 44 * U, 11 * U, '#ffb347', 'center', 'sans-serif', '600');
+    }
     else { // P2: hanya pilih warna & menunggu P1
       ctx.globalAlpha = .6 + Math.sin(G.t * 3) * .3;
       txt('Menunggu P1 memilih level…', LW / 2, y0 + 14 * U, 14 * U, '#e8d9b0', 'center', SERIF, 'italic 400');

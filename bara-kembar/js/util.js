@@ -39,17 +39,13 @@ function resize() {
   LEASH.x = W * .6 / ZMIN - 170; LEASH.y = H * .8 / ZMIN - 150;
   layoutControls();
 }
-// HP tegak: mode 2 pemain → sisi P1 di atas layar (P2 tegak menghadap pemegang HP);
-// mode solo → diputar sebaliknya supaya sisi P1 (pemain manusia) di bawah dan tegak.
+// HP tegak (portrait): sisi P1 selalu di BAWAH layar dan tegak, P2 di atas (berhadapan).
+// Layar mendatar (landscape, mis. desktop): P1 di sisi kiri, P2 di sisi kanan.
 function baseT() {
-  if (portrait && G.solo) ctx.setTransform(0, -DPR, DPR, 0, 0, SH * DPR);
-  else if (portrait) ctx.setTransform(0, DPR, -DPR, 0, SW * DPR, 0);
+  if (portrait) ctx.setTransform(0, -DPR, DPR, 0, 0, SH * DPR);
   else ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
-function toL(cx, cy) {
-  if (!portrait) return { x: cx, y: cy };
-  return G.solo ? { x: SH - cy, y: cx } : { x: cy, y: SW - cx };
-}
+function toL(cx, cy) { return portrait ? { x: SH - cy, y: cx } : { x: cx, y: cy }; }
 // bingkai baca per pemain: P1 duduk di sisi kiri layar, P2 di sisi kanan (berhadapan)
 function inFrame(i, fn) {
   ctx.save();

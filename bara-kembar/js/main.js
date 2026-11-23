@@ -26,9 +26,9 @@ function updateCam(dt) {
   cam.x = lerp(cam.x, tx, k); cam.y = lerp(cam.y, ty, k); cam.z = lerp(cam.z, tz, 1 - Math.pow(.1, dt));
 }
 
-// 2 pemain: HP mendatar (landscape) • solo: HP dipegang tegak (portrait)
+// kunci tegak di kedua mode: P1 di sisi bawah HP, P2 di sisi atas (solo: HP dipegang tegak)
 function lockOrientation() {
-  try { screen.orientation && screen.orientation.lock && screen.orientation.lock(G.solo ? 'portrait' : 'landscape').catch(() => { }); } catch (e) { }
+  try { screen.orientation && screen.orientation.lock && screen.orientation.lock('portrait').catch(() => { }); } catch (e) { }
 }
 function tryFullscreen() {
   try {
