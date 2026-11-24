@@ -103,7 +103,7 @@
         <b id="levelLabel">LEVEL 1</b><br><span id="waveLabel" class="small">WAVE 1/4</span>
       </div>
       <div class="pill barBox">
-        <div class="name"><i class="dot" style="color:#ff70d1;background:#ff70d1"></i>P2 <span id="p2hp" class="small">100/100</span></div>
+        <div class="name"><i class="dot" style="color:#ff70d1;background:#ff70d1"></i><span id="hudP2">P2</span> <span id="p2hp" class="small">100/100</span></div>
         <div class="bar"><div id="p2fill" class="fill" style="width:100%"></div></div>
       </div>
     </div>
@@ -114,7 +114,7 @@
 
   <div id="menu" class="screen show">
     <div class="card">
-      <div class="badge">2 PLAYER • LOCAL CO-OP</div>
+      <div class="badge">1–2 PLAYER • LOCAL CO-OP</div>
       <h1 class="logoGlow" style="margin-top:12px"><span class="grad">NEBULA</span><br>DUO</h1>
       <p class="subtitle">Top-down vertical shooter tanpa akhir. Dua pesawat, dua joypad, satu layar, dan level procedural yang terus berubah.</p>
       <div class="stats">
@@ -122,11 +122,12 @@
         <div class="stat"><b id="menuBest">0</b><span>Level Tertinggi</span></div>
       </div>
       <button id="startBtn">MULAI LEVEL 1</button>
+      <button id="modeBtn" class="secondary">MODE: 2 PEMAIN ⇄</button>
       <button id="fullscreenBtn" class="secondary">⛶ FULL SCREEN</button>
       <button id="resetBtn" class="secondary">RESET PROGRES</button>
       <div class="help">
-        <div><b>P1</b><br>Joypad kiri bawah</div>
-        <div><b>P2</b><br>Joypad kanan bawah</div>
+        <div><b>P1</b><br><span id="helpP1">Joypad kiri bawah</span></div>
+        <div><b>P2</b><br><span id="helpP2">Joypad kanan bawah</span></div>
       </div>
     </div>
   </div>
@@ -143,7 +144,7 @@
           <div id="p1choices"></div>
         </div>
         <div class="upgradeCol">
-          <h3 style="color:#ff70d1">PLAYER 2</h3>
+          <h3 style="color:#ff70d1" id="upP2">PLAYER 2</h3>
           <div id="p2choices"></div>
         </div>
       </div>
@@ -218,11 +219,11 @@ let rng=Math.random;
 function seeded(seed){rng=mulberry32(xmur3(String(seed))())}
 function R(a=1,b=0){return b+rng()*(a-b)}
 
-const defaults={level:1,best:0,difficulty:1,seed:Date.now()%999999,losses:0};
+const defaults={level:1,best:0,difficulty:1,seed:Date.now()%999999,losses:0,solo:false};
 let save=loadSave();
 function loadSave(){try{return {...defaults,...JSON.parse(localStorage.getItem('nebulaDuoSave')||'{}')}}catch(e){return {...defaults}}}
 function saveGame(){localStorage.setItem('nebulaDuoSave',JSON.stringify(save));updateMenu()}
-function resetSave(){save={...defaults,seed:Date.now()%999999};saveGame();showMenu()}
+function resetSave(){save={...defaults,seed:Date.now()%999999,solo:save.solo};saveGame();showMenu()}
 
 const joy1={id:null,x:72,y:570,dx:0,dy:0,active:false};
 const joy2={id:null,x:288,y:570,dx:0,dy:0,active:false};
@@ -284,9 +285,11 @@ function pickUpgrades(n=3){
 function resize(){
   const r=wrap.getBoundingClientRect(); DPR=Math.min(2,devicePixelRatio||1);
   W=r.width;H=r.height;canvas.width=W*DPR;canvas.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
-  joy1.x=W*.20;joy2.x=W*.80;joy1.y=joy2.y=H-78;
+  layoutJoys();
   initStars();
 }
+// mode solo: satu joystick di tengah bawah, bisa dipakai jempol kiri maupun kanan
+function layoutJoys(){joy1.x=save.solo?W*.5:W*.20;joy2.x=W*.80;joy1.y=joy2.y=H-78}
 addEventListener('resize',resize);
 
 function initStars(){
@@ -304,6 +307,12 @@ function showMenu(){running=false;paused=true;hideScreens();$('menu').classList.
 function updateMenu(){
   $('menuLevel').textContent=save.level;$('menuBest').textContent=save.best;
   $('startBtn').textContent='MULAI LEVEL '+save.level;
+  $('modeBtn').textContent=save.solo?'MODE: SOLO + BOT ⇄':'MODE: 2 PEMAIN ⇄';
+  $('helpP1').innerHTML=save.solo?'Joypad tengah bawah':'Joypad kiri bawah';
+  $('helpP2').innerHTML=save.solo?'Bot: menempel di sampingmu':'Joypad kanan bawah';
+  $('hudP2').textContent=save.solo?'BOT':'P2';
+  $('upP2').textContent=save.solo?'BOT':'PLAYER 2';
+  layoutJoys();
 }
 function fullResetPlayers(){
   players=[makePlayer(1),makePlayer(2)];
@@ -384,7 +393,43 @@ function spawnBoss(){
   playSound('bossWarning',.65);
   showToast(`BOSS • ${a.toUpperCase()}`);
 }
-function allPlayersDead(){return players.every(p=>!p.alive)}
+// Mode solo: level gagal begitu P1 (manusia) hancur, karena tidak seru menonton bot sendirian.
+function allPlayersDead(){return save.solo?!players[0].alive:players.every(p=>!p.alive)}
+const playerName=p=>save.solo&&p.id===2?'BOT':`PLAYER ${p.id}`;
+
+// =====================================================================
+//  BOT REKAN (mode solo)
+//  Bot hanya mengisi joy2 seperti jempol pemain kedua, jadi aturan gerak,
+//  tembakan otomatis, dan upgrade tetap sama. Tugasnya sederhana: pendukung
+//  yang menempel di samping P1 sambil menjauhi peluru & musuh yang terlalu dekat.
+// =====================================================================
+const bot={side:1,t:0};
+function updateBot(dt){
+  joy2.dx=joy2.dy=0;
+  const me=players[1],lead=players[0];
+  if(!me||!me.alive)return;
+  bot.t+=dt;
+  // pindah sisi hanya kalau sisi sekarang mepet tepi layar
+  if(lead.x+bot.side*48>W-24)bot.side=-1;else if(lead.x+bot.side*48<24)bot.side=1;
+  // posisi tujuan: di samping P1, sedikit di belakang, bergoyang pelan supaya tembakan menyebar
+  const tx=(lead.alive?lead.x+bot.side*48:W*.5)+Math.sin(bot.t*1.3)*10;
+  const ty=lead.alive?lead.y+14:H*.78;
+  let ax=(tx-me.x)/40,ay=(ty-me.y)/40;
+  // dorongan menjauh dari peluru musuh dan badan musuh yang dekat
+  for(const b of enemyBullets){
+    const dx=me.x-b.x,dy=me.y-b.y,d=Math.hypot(dx,dy);
+    if(d>0&&d<80){const w=(80-d)/80*2.2;ax+=dx/d*w;ay+=dy/d*w}
+  }
+  for(const e of enemies){
+    if(e.dead)continue;
+    const dx=me.x-e.x,dy=me.y-e.y,d=Math.hypot(dx,dy),lim=e.r+60;
+    if(d>0&&d<lim){const w=(lim-d)/lim*2.5;ax+=dx/d*w;ay+=dy/d*w}
+  }
+  const m=Math.hypot(ax,ay);
+  if(m<.08)return;
+  if(m>1){ax/=m;ay/=m}
+  joy2.dx=ax;joy2.dy=ay;
+}
 
 function firePlayer(p){
   if(!p.alive)return;
@@ -425,7 +470,7 @@ function damagePlayer(p,dmg){
   if(p.shield>0){const s=Math.min(p.shield,dmg);p.shield-=s;dmg-=s}
   if(dmg>0)p.hp-=dmg;
   p.iFrame=.6;shake=Math.max(shake,5);burst(p.x,p.y,p.id===1?'#70e9ff':'#ff70d1',14);playSound('hit',.28);
-  if(p.hp<=0){p.hp=0;p.alive=false;burst(p.x,p.y,'#fff',35);playSound('playerDown',.65);showToast(`PLAYER ${p.id} HANCUR`)}
+  if(p.hp<=0){p.hp=0;p.alive=false;burst(p.x,p.y,'#fff',35);playSound('playerDown',.65);showToast(`${playerName(p)} HANCUR`)}
   updateHUD();
   if(allPlayersDead()) loseLevel();
 }
@@ -496,6 +541,15 @@ function openUpgrade(prelevel){
       box.appendChild(b);
     });
   });
+  // mode solo: bot memilih satu kartu acak setelah jeda singkat (agar pilihannya terlihat)
+  if(save.solo){
+    const round=currentUpgradeRound;
+    setTimeout(()=>{
+      if(round!==currentUpgradeRound||chosen[1])return;
+      const cards=[...$('p2choices').children];
+      if(cards.length)cards[irand(cards.length)].click();
+    },700);
+  }
   $('continueBtn').onclick=()=>{
     if(prelevel){
       preLevelUpgradeRemaining--;
@@ -507,6 +561,7 @@ function openUpgrade(prelevel){
 function update(dt){
   time+=dt; if(!running)return;
   for(const s of stars){s.y+=40*s.z*dt;if(s.y>H){s.y=0;s.x=Math.random()*W}}
+  if(save.solo)updateBot(dt);
   players.forEach((p,idx)=>{
     if(!p.alive)return;
     const j=idx?joy2:joy1;
@@ -631,7 +686,7 @@ function draw(){
   if(shake){ctx.translate(rand(-shake,shake),rand(-shake,shake))}
   drawBackground();
   drawEntities();
-  drawJoy(joy1,'#70e9ff','P1');drawJoy(joy2,'#ff70d1','P2');
+  drawJoy(joy1,'#70e9ff','P1');if(!save.solo)drawJoy(joy2,'#ff70d1','P2');
   ctx.restore();
   if(flash){ctx.fillStyle=`rgba(255,255,255,${flash})`;ctx.fillRect(0,0,W,H)}
 }
@@ -707,7 +762,7 @@ function loop(t){
 }
 function pointerDown(ev){
   const r=canvas.getBoundingClientRect(),x=ev.clientX-r.left,y=ev.clientY-r.top;
-  const j=x<W/2?joy1:joy2;if(j.id!==null)return;
+  const j=(save.solo||x<W/2)?joy1:joy2;if(j.id!==null)return;
   j.id=ev.pointerId;j.active=true;moveJoy(j,x,y);
   canvas.setPointerCapture?.(ev.pointerId);
 }
@@ -724,6 +779,7 @@ canvas.addEventListener('pointercancel',pointerUp);
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 
 $('startBtn').onclick=startFromMenu;
+$('modeBtn').onclick=()=>{playSound('button',.4);save.solo=!save.solo;saveGame()};
 $('fullscreenBtn').onclick=async()=>{
   playSound('button',.4);
   try{
