@@ -66,7 +66,7 @@ function updateProj(dt) {
       if (Math.random() < .08) part(h.x + rand(-h.r, h.r) * .6, h.y + rand(-h.r, h.r) * .6, 0, rand(-40, -15), rand(.4, .8), '#ffb347', 2, true);
     } else if (h.kind === 'ring') {
       h.rad += h.speed * dt;
-      for (const p of players) if (p.alive && !h.hit.has(p) && Math.abs(dist(p, h) - h.rad) < h.w / 2 + p.r * .6) { h.hit.add(p); hurtPlayer(p, h.dmg, h, { knock: 220 }); }
+      for (const p of players) if (p.alive && !h.hit.has(p) && Math.abs(dist(p, h) - h.rad) < h.w / 2 + p.r * .6) { h.hit.add(p); hurtPlayer(p, h.dmg, h, { knock: 220, parryable: true, omni: true }); } // cincin melingkar: parry/tameng tak perlu menghadap pusatnya
       if (h.rad > h.max) h.gone = true;
     }
   }

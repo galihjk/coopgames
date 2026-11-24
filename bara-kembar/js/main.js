@@ -3,7 +3,10 @@
 //  UPDATE
 // =====================================================================
 function update(dt) {
-  if (G.mode === 'play') L.stats.t += dt;
+  if (G.mode === 'play') {
+    L.stats.t += dt; SAVE.time[L.idx] = (SAVE.time[L.idx] || 0) + dt;
+    G.saveT = (G.saveT || 0) + dt; if (G.saveT > 15) { G.saveT = 0; saveGame(); } // simpan waktu bermain berkala
+  }
   L.fieldT -= dt; if (L.fieldT <= 0) { computeFields(); L.fieldT = .3; }
   if (G.solo) botUpdate(players[1], players[0], dt); // bot mengisi IN[1] sebelum pemain diproses
   for (const p of players) updatePlayer(p, dt);

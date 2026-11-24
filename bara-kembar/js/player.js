@@ -230,12 +230,12 @@ function updatePlayer(p, dt) {
       const D = .48, k = p.st / D;
       const sp = 300 * Math.pow(Math.max(0, 1 - k), .6) + 30;
       movePlayer(p, Math.cos(p.rollA) * sp * dt, Math.sin(p.rollA) * sp * dt);
-      if (p.st > .03 && p.st < .30) p.iframe = Math.max(p.iframe, .02);
+      if (p.st > .03 && p.st < .38) p.iframe = Math.max(p.iframe, .02);
       if (Math.random() < .5) puff(p.x, p.y, 'rgba(150,140,130,', 1);
       if (p.st >= D) { p.state = 'roll_r'; p.st = 0; }
       break;
     }
-    case 'roll_r': if (p.st >= .14) { p.state = 'free'; p.st = 0; } break;
+    case 'roll_r': if (p.st >= .10) { p.state = 'free'; p.st = 0; } break;
     case 'heal': {
       aimWalk(SPD * HOLD_SPD);
       if (!p.healDone && p.st >= .65) {
@@ -260,7 +260,7 @@ function hurtPlayer(p, dmg, src, o = {}) {
   const by = src && (src.src || src); if (by && by.maxHp && !by.boss) dmg *= lvlMul(); // musuh biasa: +6%/level
   dmg *= RULE.dmgTaken();
   const a = Math.atan2(src.y - p.y, src.x - p.x);
-  const front = Math.abs(angDiff(p.face, a)) < 1.3;
+  const front = o.omni || Math.abs(angDiff(p.face, a)) < 1.3; // omni: serangan melingkar (cincin) tak punya arah
   if (p.state === 'block' && front && !o.unblockable) {
     if (p.blockT < RULE.parryWin() && o.parryable) {
       Snd.parry(); hitStop(.13); shake(6); vib(30); p.parryFx = .4;
@@ -298,5 +298,5 @@ function revivePlayer(p, hpFrac) {
 }
 function gameOver() {
   if (G.mode === 'over') return;
-  G.mode = 'over'; G.overT = 0; L.stats.overs++; Snd.over(); Snd.music(false);
+  G.mode = 'over'; G.overT = 0; L.stats.overs++; SAVE.losses[L.idx] = (SAVE.losses[L.idx] || 0) + 1; saveGame(); Snd.over(); Snd.music(false);
 }

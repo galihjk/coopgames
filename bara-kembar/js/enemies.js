@@ -543,12 +543,12 @@ AI.totem = (e, t, dt) => { // diam di tempat, sesekali menembak pemain terdekat
 };
 AI.lantern = (e, t, dt) => {
   if (!e.totems || e.needTotems) { startAtk(e, DEF.lTotems, t); return; } // awal pertarungan / celah habis → berperisai lagi
-  if (!e.p2 && e.hp < e.maxHp * .5) { e.p2 = true; e.spdMul = 1.15; startAtk(e, DEF.lTotems, t); banner('', 'Lentera menyala murka!', 2, '#ff9a4a', false); return; }
+  if (!e.p2 && e.hp < e.maxHp * .5) { e.p2 = true; e.spdMul = 1.05; startAtk(e, DEF.lTotems, t); banner('', 'Lentera menyala murka!', 2, '#ff9a4a', false); return; }
   const d = dist(e, t), a = angTo(e, t);
   e.face = turnTo(e.face, a, 3.5 * dt);
   if (e.cd <= 0) {
     const r = Math.random();
-    if (d < 110) { startAtk(e, r < .6 ? DEF.lSweep : DEF.xSlam, t); return; }
+    if (d < 110) { startAtk(e, r < .75 ? DEF.lSweep : DEF.xSlam, t); return; }
     startAtk(e, r < .35 ? DEF.lFlare : r < .65 ? DEF.vBeam : DEF.xSlam, t); return;
   }
   if (d > 100) { moveCircle(e, Math.cos(a) * e.speed * e.spdMul * dt, Math.sin(a) * e.speed * e.spdMul * dt); e.walk += e.speed * dt * .08; }

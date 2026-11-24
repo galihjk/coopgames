@@ -181,6 +181,13 @@ function swatchRow(i, cy) {
   const r = 11 * U, gap = 30 * U, n = PALETTE.length, cx0 = H / 2 - (n - 1) / 2 * gap;
   return PALETTE.map((_, k) => ({ id: 'color', k, pi: i, swatch: true, x: cx0 + k * gap - r, y: cy - r, w: r * 2, h: r * 2 }));
 }
+// lama bermain: "1 j 12 m" / "12 m" / "40 d"
+const fmtLong = t => t >= 3600 ? Math.floor(t / 3600) + ' j ' + Math.floor(t % 3600 / 60) + ' m' : t >= 60 ? Math.floor(t / 60) + ' m' : Math.floor(t) + ' d';
+function levelSub(k) { // nama level, bergantian dengan riwayat (kalau sudah pernah dimainkan)
+  const t = SAVE.time[k] || 0, n = SAVE.losses[k] || 0;
+  if (t < 5 || Math.floor(G.t / 3) % 2 === 0) return LEVELS[k].name;
+  return 'dimainkan ' + fmtLong(t) + (n ? '  ·  kalah ' + n + '×' : '');
+}
 function levelLockText(k) { const n = k + 1 - OPEN_LEVELS - SAVE.cleared.length; return '🔒 tamatkan ' + n + ' level lagi'; }
 function menuButtons(i) {
   const u = U, LW = H, LH = W, host = i === 0;
@@ -192,7 +199,7 @@ function menuButtons(i) {
       { id: 'mode', x: x0, y: y0, w: bw / 2 - 4 * u, h: 38 * u, cap: 'MODE  ⇄', label: G.solo ? 'SOLO + BOT' : '2 PEMAIN' },
       { id: 'diff', x: x0 + bw / 2 + 4 * u, y: y0, w: bw / 2 - 4 * u, h: 38 * u, cap: 'KESULITAN  ⇄', label: isEasy() ? 'SANTAI' : 'NORMAL' },
       { id: 'prev', x: x0, y: y0 + 46 * u, w: aw, h: 50 * u, label: '◂' },
-      { id: 'lvl', x: x0 + aw + 8 * u, y: y0 + 46 * u, w: bw - 2 * aw - 16 * u, h: 50 * u, label: 'LEVEL ' + (G.sel + 1), sub: open ? LEVELS[G.sel].name : levelLockText(G.sel), done: SAVE.cleared.includes(G.sel), off: !open },
+      { id: 'lvl', x: x0 + aw + 8 * u, y: y0 + 46 * u, w: bw - 2 * aw - 16 * u, h: 50 * u, label: 'LEVEL ' + (G.sel + 1), sub: open ? levelSub(G.sel) : levelLockText(G.sel), done: SAVE.cleared.includes(G.sel), off: !open },
       { id: 'next', x: x0 + bw - aw, y: y0 + 46 * u, w: aw, h: 50 * u, label: '▸' },
       { id: 'start', x: x0 + bw * .2, y: y0 + 116 * u, w: bw * .6, h: 44 * u, label: open ? 'MULAI' : 'TERKUNCI', hl: open, off: !open },
       ...swatchRow(i, y0 + 198 * u),
@@ -261,7 +268,7 @@ function drawMenuButtons() {
 const resetArmed = () => G.resetArm != null && G.t - G.resetArm < 3;
 function resetProgress() {
   if (!resetArmed()) { G.resetArm = G.t; return; }
-  G.resetArm = null; SAVE.cleared = []; saveGame(); G.sel = 0; G.resetDone = G.t; // warna & mode tetap
+  G.resetArm = null; Object.assign(SAVE, { cleared: [], clearedNormal: [], best: {}, time: {}, losses: {} }); saveGame(); G.sel = 0; G.resetDone = G.t; // warna, mode & kesulitan tetap
 }
 function toggleDiff() { SAVE.diff = isEasy() ? 'normal' : 'easy'; saveGame(); }
 function pickLevel(d) { G.sel = (G.sel + d + LEVELS.length) % LEVELS.length; }
@@ -290,7 +297,7 @@ function uiTap(q) {
   return false;
 }
 function togglePause() {
-  if (G.mode === 'play') { G.mode = 'pause'; for (const n of IN) { n.tb = [0, 0, 0]; n.joy = null; n.buf = [-1, -1, -1]; } ptrs.clear(); }
+  if (G.mode === 'play') { saveGame(); G.mode = 'pause'; for (const n of IN) { n.tb = [0, 0, 0]; n.joy = null; n.buf = [-1, -1, -1]; } ptrs.clear(); }
   else if (G.mode === 'pause') { G.mode = 'play'; G.gestureWarn = false; }
 }
 function drawTitle() {
@@ -319,6 +326,12 @@ const waitP1 = (LW, LH) => { ctx.globalAlpha = .6 + Math.sin(G.t * 3) * .3; txt(
 function drawPause() {
   baseT(); ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(0, 0, W, H);
   for (const i of frames()) inFrame(i, (LW, LH) => {
+    if (i === 0 && L && !G.gestureWarn) { // statistik level ini (sesi sekarang) + riwayat tersimpan
+      const s = L.stats, a = 'Waktu ' + fmtTime(s.t) + '  ·  kalah ' + s.overs + '×  ·  tumbang ' + s.downs[0] + '/' + s.downs[1];
+      const b = 'Total di level ini: ' + fmtLong(SAVE.time[L.idx] || 0) + '  ·  kalah ' + (SAVE.losses[L.idx] || 0) + '×';
+      if (G.solo) { txt(a, LW / 2, LH * .3 + 92 * U, 11 * U, '#e8dcc0', 'center', 'sans-serif', '600'); txt(b, LW / 2, LH * .3 + 110 * U, 10 * U, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '500'); }
+      else { txt(a, 124 * U, LH / 2 + 16 * U, 10 * U, '#e8dcc0', 'left', 'sans-serif', '600'); txt(b, 124 * U, LH / 2 + 31 * U, 9 * U, 'rgba(232,217,176,.7)', 'left', 'sans-serif', '500'); }
+    }
     if (G.solo) txt('JEDA', LW / 2, LH * .3, 30 * U, '#e8d9b0', 'center', SERIF, '400');
     else txt('JEDA', 12 * U + 48 * U, LH / 2 + 22 * U, 24 * U, '#e8d9b0', 'center', SERIF, '400');
     if (G.gestureWarn) drawGestureWarn(LW, LH);

@@ -64,6 +64,11 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
 - **Mode solo:** hanya P1 yang tampil (HUD, kontrol, menu); P2 = bot. Mode 2 pemain: hanya P1 memegang
   menu, P2 cukup memilih warna dan melihat "Menunggu P1…".
 - **Gestur 3 jari:** `pointercancel` saat ≥3 jari → jeda + `drawGestureWarn` (sekali per sesi).
+- **Gelombang cincin (hazard `ring`) bisa diparry/ditahan dari arah mana pun** (`omni` di `hurtPlayer`):
+  dulu tak bisa diparry dan menjadi sumber kena terbanyak bagi pemain yang mengandalkan parry, padahal
+  guling dihukum oleh proyektil yang masih beterbangan.
+- **Riwayat per level** (`SAVE.time`, `SAVE.losses`) dicatat permanen agar pemain tahu sudah berapa lama
+  & berapa kali kalah; tampil di layar jeda dan pemilih level. "Reset progres" ikut menghapusnya.
 - Musuh biasa naik kekuatannya per level (`LEVEL_SCALE`), bos tidak (diatur sendiri per bos).
 
 ## Resep uji headless (Node)

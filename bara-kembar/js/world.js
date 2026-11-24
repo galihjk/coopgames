@@ -425,6 +425,8 @@ if (!Array.isArray(SAVE.colors)) SAVE.colors = [0, 1]; // indeks PALETTE (player
 if (SAVE.diff !== 'easy' && SAVE.diff !== 'normal') SAVE.diff = SAVE.cleared.length ? 'normal' : 'easy';
 if (!Array.isArray(SAVE.clearedNormal)) SAVE.clearedNormal = SAVE.diff === 'normal' ? SAVE.cleared.slice() : []; // tamat di Normal → tanda ✦
 if (!SAVE.best || typeof SAVE.best !== 'object') SAVE.best = {}; // rekor waktu per level (detik)
+if (!SAVE.time || typeof SAVE.time !== 'object') SAVE.time = {};       // total waktu bermain per level (detik), termasuk percobaan gagal
+if (!SAVE.losses || typeof SAVE.losses !== 'object') SAVE.losses = {}; // berapa kali kalah total (semua pemain tumbang) per level
 const isEasy = () => SAVE.diff === 'easy';
 // aturan yang berbeda antar kesulitan (Santai | Normal)
 const RULE = {
