@@ -11,7 +11,7 @@ function drawIcon(kind, x, y, s, rot, col) {
   ctx.restore();
 }
 function drawControls() {
-  if (G.mode !== 'play' && G.mode !== 'over') return;
+  if (G.mode !== 'play' && G.mode !== 'over' && G.mode !== 'intro') return;
   for (const i of frames()) {
     const c = ctrls[i], p = players[i], n = IN[i], rot = i === 0 ? Math.PI / 2 : -Math.PI / 2;
     // joystick
@@ -95,8 +95,6 @@ function drawHUD(p, LW, LH) {
     txt('Gugur — rekanmu bisa membangkitkanmu di api unggun', LW / 2, my, 12 * u, '#c8b8a8'); my -= 18 * u;
     if (G.solo) { txt('atau jeda (‖) → MENYERAH untuk bangkit sekarang', LW / 2, my, 10.5 * u, 'rgba(232,217,176,.7)'); my -= 20 * u; }
   }
-  const hintA = G.hintT > 0 ? clamp(G.hintT, 0, 1) : p.swapHint > 0 ? clamp(p.swapHint, 0, 1) : 0;
-  if (hintA > 0 && p.alive) drawCallouts(p, LW, base, hintA, G.hintT > 0);
   // banner
   for (const b of G.banners) {
     const a = clamp(Math.min(b.t * 2, (b.dur - b.t) * 1.5), 0, 1); if (a <= 0) continue;
@@ -213,6 +211,12 @@ function menuButtons(i) {
       ...(SAVE.cleared.length ? [{ id: 'reset', tiny: true, x: LW / 2 + 65 * u, y: LH - 56 * u, w: 118 * u, h: 24 * u, label: resetArmed() ? 'Ketuk lagi' : 'Reset progres', warn: resetArmed() }] : []),
     ];
   }
+  if (G.mode === 'intro') { // tiap pemain punya OK sendiri; mode 2 pemain lanjut setelah keduanya OK
+    if (G.introOk[i]) return [];
+    const bw = 120 * u, bh = 44 * u;
+    return [G.solo ? { id: 'introok', pi: i, x: LW / 2 - bw / 2, y: LH * .3 + 30 * u, w: bw, h: bh, label: 'OK', hl: true }
+      : { id: 'introok', pi: i, x: 12 * u, y: LH / 2 + 44 * u, w: 96 * u, h: 40 * u, label: 'OK', hl: true }];
+  }
   if (!host) return [];
   if (G.mode === 'records') { // tab kesulitan + kembali
     const y = recTop(LH), tw = 110 * u;
@@ -308,6 +312,7 @@ function uiTap(q) {
         else if (b.id === 'next') pickLevel(1);
         else if (b.id === 'lvl' || b.id === 'start') startGame(G.sel);
         else if (b.id === 'resume') { G.mode = 'play'; G.gestureWarn = false; }
+        else if (b.id === 'introok') introOk(b.pi);
         else if (b.id === 'giveup') { G.mode = 'play'; G.gestureWarn = false; gameOver(); }
         else if (b.id === 'quit' || b.id === 'title') { G.mode = 'title'; Snd.music(false); }
         return true;
@@ -315,6 +320,10 @@ function uiTap(q) {
     }
   }
   return false;
+}
+function introOk(i) {
+  G.introOk[i] = true;
+  if (G.introOk.every(Boolean)) { G.mode = 'play'; G.introSeen = true; for (const n of IN) { n.tb = [0, 0, 0]; n.joy = null; n.buf = [-1, -1, -1]; } ptrs.clear(); }
 }
 function togglePause() {
   if (G.mode === 'play') { saveGame(); G.mode = 'pause'; for (const n of IN) { n.tb = [0, 0, 0]; n.joy = null; n.buf = [-1, -1, -1]; } ptrs.clear(); }
@@ -350,6 +359,7 @@ function drawPause() {
       const s = L.stats, a = 'Waktu ' + fmtTime(s.t) + '  ·  kalah ' + s.overs + '×  ·  tumbang ' + s.downs[0] + '/' + s.downs[1];
       const b = 'Total di level ini (' + DIFF_NAME() + '): ' + fmtLong(REC().time[L.idx] || 0) + '  ·  kalah ' + (REC().losses[L.idx] || 0) + '×';
       const gy = canGiveUp() ? 50 * U : 0; // beri ruang untuk tombol MENYERAH
+      if (G.solo) noteLines(players[0], LW / 2, LH * .3 + 132 * U + gy, 'center', false, false);
       if (G.solo) { txt(a, LW / 2, LH * .3 + 92 * U + gy, 11 * U, '#e8dcc0', 'center', 'sans-serif', '600'); txt(b, LW / 2, LH * .3 + 110 * U + gy, 10 * U, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '500'); }
       else { txt(a, 124 * U, LH / 2 + 16 * U, 10 * U, '#e8dcc0', 'left', 'sans-serif', '600'); txt(b, 124 * U, LH / 2 + 31 * U, 9 * U, 'rgba(232,217,176,.7)', 'left', 'sans-serif', '500'); }
     }
@@ -357,6 +367,7 @@ function drawPause() {
     else txt('JEDA', 12 * U + 48 * U, LH / 2 + 22 * U, 24 * U, '#e8d9b0', 'center', SERIF, '400');
     if (G.gestureWarn) drawGestureWarn(LW, LH);
     else drawCallouts(players[i], LW, LH - 226 * U, 1, G.solo); // petunjuk tombol tetap terbaca saat jeda
+    if (!G.solo && !G.gestureWarn) noteLines(players[i], 124 * U, LH / 2 + (i === 0 ? 1 : 16) * U, 'left', false, false); // P1: di atas statistik
     if (i === 1) waitP1(LW, LH); // tombol LANJUT/KE JUDUL hanya di P1
   });
   drawMenuButtons();
@@ -502,4 +513,30 @@ function drawRecords() {
     if (i === 1) txt('Menunggu P1…', LW / 2, top + 319 * u, 12 * u, 'rgba(232,217,176,.7)', 'center', SERIF, 'italic 400');
   });
   drawMenuButtons();
+}
+
+// ---------- layar "Cara main" (sekali per browser dibuka) ----------
+// Menggantikan petunjuk yang dulu muncul tiap awal level & tiap ganti senjata (menutupi arena saat bertarung).
+function drawIntro() {
+  baseT(); ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(0, 0, W, H);
+  for (const i of frames()) inFrame(i, (LW, LH) => {
+    const done = G.introOk[i];
+    if (G.solo) {
+      txt('CARA MAIN', LW / 2, LH * .3, 26 * U, '#e8d9b0', 'center', SERIF, '400');
+      noteLines(players[i], LW / 2, LH * .3 + 96 * U, 'center');
+    } else {
+      txt('CARA MAIN', 12 * U + 48 * U, LH / 2 + 22 * U, 18 * U, '#e8d9b0', 'center', SERIF, '400');
+      noteLines(players[i], 124 * U, LH / 2 + 16 * U, 'left', true); // di kanan kolom tombol, seperti statistik layar jeda
+    }
+    if (done) { ctx.globalAlpha = .6 + Math.sin(G.t * 3) * .3; txt('Menunggu rekanmu…', G.solo ? LW / 2 : 12 * U + 48 * U, G.solo ? LH * .3 + 52 * U : LH / 2 + 64 * U, 13 * U, '#e8d9b0', 'center', SERIF, 'italic 400'); ctx.globalAlpha = 1; }
+    drawCallouts(players[i], LW, LH - 226 * U, 1, G.solo); // mode 2 pemain: ruang sempit, joystick dijelaskan lewat teks
+  });
+  drawMenuButtons();
+}
+// fungsi tombol untuk senjata yang sedang TIDAK dipegang + pengingat layar jeda
+function noteLines(p, x, y, align, joy, remind = true) {
+  if (joy) { txt('Joystick: geser = bergerak & menghadap', x, y, 10 * U, '#e8dcc0', align, 'sans-serif', '600'); y += 14 * U; }
+  const o = p.weapon === 'sword' ? 'Busur' : 'Pedang', c = CALLOUTS[p.weapon === 'sword' ? 'bow' : 'sword'];
+  txt('Ganti senjata → ' + o + ': ' + c[0][0] + ' · ' + c[1][0], x, y, (joy ? 10 : 10.5) * U, '#e8dcc0', align, 'sans-serif', '600');
+  if (remind) txt('Petunjuk ini bisa dilihat lagi di layar jeda (‖)', x, y + (joy ? 14 : 17) * U, (joy ? 9 : 10) * U, 'rgba(232,217,176,.7)', align, 'sans-serif', '500');
 }

@@ -52,7 +52,8 @@ function startGame(idx) {
   G.banners = []; G.fx = []; G.slowT = 0;
   loadLevel(idx); G.mode = 'play'; G.fade = 1; G.fadeDir = -1;
   levelIntro();
-  G.hintT = idx === 0 ? 14 : 6;
+  // layar "Cara main" sekali per browser dibuka (tidak disimpan), sebelum level berjalan
+  if (!G.introSeen) { G.mode = 'intro'; G.introOk = [false, G.solo]; }
 }
 
 // =====================================================================
@@ -75,7 +76,6 @@ function step(now) {
     }
     updateCam(dt);
     G.shake = Math.max(0, G.shake - dt * 30);
-    if (G.hintT > 0) G.hintT -= dt;
     for (const b of G.banners) b.t += dt;
     G.banners = G.banners.filter(b => b.t < b.dur);
     if (ran) endInput();

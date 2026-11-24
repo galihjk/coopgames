@@ -512,6 +512,7 @@ function render() {
   drawPauseBtn();
   if (G.mode === 'over') drawOver();
   if (G.mode === 'pause') drawPause();
+  if (G.mode === 'intro') drawIntro();
   drawFade();
 }
 // garis bidik saat menarik busur: ke target yang akan dikunci bantuan bidik, atau lurus ke depan.

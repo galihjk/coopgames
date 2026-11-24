@@ -25,7 +25,7 @@ class Player {
       x, y, kx: 0, ky: 0, hp: this.maxHp, hpLag: this.maxHp, stam: this.maxStam, stamCd: 0, flasks: RULE.flasks(),
       state: 'free', st: 0, face: this.i ? Math.PI : 0, vface: this.i ? Math.PI : 0, combo: 0, chainLock: false, hitSet: null, blockT: 0, drawT: 0,
       relPending: false, iframe: 1, flash: 0, down: false, dead: false, downT: 0, revT: 0, b3T: -1, healDone: false,
-      slowT: 0, rollA: 0, walk: 0, moving: 0, stagDur: 0, msg: null, swapHint: 0, parryFx: 0
+      slowT: 0, rollA: 0, walk: 0, moving: 0, stagDur: 0, msg: null, parryFx: 0
     });
   }
   get alive() { return !this.down && !this.dead; }
@@ -117,7 +117,6 @@ function updatePlayer(p, dt) {
   p.flash = Math.max(0, p.flash - dt); p.iframe = Math.max(0, p.iframe - dt); p.parryFx = Math.max(0, p.parryFx - dt);
   p.hpLag = p.hpLag > p.hp ? Math.max(p.hp, p.hpLag - 30 * dt) : p.hp;
   if (p.msg) { p.msg.t += dt; if (p.msg.t > p.msg.dur) p.msg = null; }
-  if (p.swapHint > 0) p.swapHint -= dt;
   if (p.kx || p.ky) {
     moveCircle(p, p.kx * dt, p.ky * dt); const f = Math.pow(.0015, dt); p.kx *= f; p.ky *= f;
     if (Math.hypot(p.kx, p.ky) < 6) p.kx = p.ky = 0;
@@ -246,7 +245,7 @@ function updatePlayer(p, dt) {
       break;
     }
     case 'swap': {
-      if (p.st >= .2 && !p.swapped) { p.swapped = true; p.weapon = p.weapon === 'sword' ? 'bow' : 'sword'; p.swapHint = 4; }
+      if (p.st >= .2 && !p.swapped) { p.swapped = true; p.weapon = p.weapon === 'sword' ? 'bow' : 'sword'; }
       if (p.st >= .42) { p.state = 'free'; p.st = 0; p.swapped = false; }
       break;
     }

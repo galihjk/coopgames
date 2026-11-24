@@ -18,11 +18,11 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
 - `effects.js`: proyektil, hazard (`pillar`, `ring`, `root`, `lava`), partikel.
 - `flow.js`: api unggun, kabut gerbang, bos, portal, `levelCleared`/`continueAfterClear`, `respawnAll`.
 - `render.js`: `render()`, `drawStick`/`drawRoll`, `drawEnemy` (memanggil `BEAST_DRAW`), cahaya, `drawOffscreen`.
-- `ui.js`: kontrol & HUD, `drawCallouts` (label+panah tombol), `menuButtons(i)`/`uiTap`, layar ringkasan, epilog, tes sentuh, `drawGestureWarn`.
+- `ui.js`: kontrol & HUD, `drawCallouts` (label+panah tombol), `menuButtons(i)`/`uiTap`, layar ringkasan, epilog, tes sentuh, `drawGestureWarn`, layar Cara main (`drawIntro`).
 - `main.js`: `update`, `updateCam`, `startGame`, `step` (loop `requestAnimationFrame`).
 
 ## Alur
-- `G.mode`: `title` → `play` ⇄ `pause` / `over` (semua tumbang → `respawnAll` di api unggun terakhir) →
+- `G.mode`: `title` → (`intro` sekali per browser dibuka, `G.introSeen`) → `play` ⇄ `pause` / `over` (semua tumbang → `respawnAll` di api unggun terakhir) →
   `clear` (ringkasan level) → `play` level berikutnya, atau `win` (epilog) setelah level terakhir.
   `touchtest` (Tes sentuh) dan `records` (Catatan, tab kesulitan di `G.recView`) dibuka dari layar judul.
 - Level: jelajah → nyalakan api unggun (checkpoint) → kedua pemain di depan kabut → masuk arena,
@@ -65,6 +65,9 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
   Mode solo **tanpa tali** (dulu bot & pemain saling mengunci di peta berlantai); bot menyusul via `botWarp`.
 - **Mode solo:** hanya P1 yang tampil (HUD, kontrol, menu); P2 = bot. Mode 2 pemain: hanya P1 memegang
   menu, P2 cukup memilih warna dan melihat "Menunggu P1…".
+- **Petunjuk tombol hanya di layar Cara main (`intro`) & layar jeda**, tidak lagi muncul di awal level atau tiap
+  ganti senjata: dulu label bertumpuk menutupi arena saat pemain ganti senjata di tengah pertarungan. Tiap pemain
+  menekan OK sendiri (`G.introOk`); mode 2 pemain baru mulai setelah keduanya OK.
 - **Gestur 3 jari:** `pointercancel` saat ≥3 jari → jeda + `drawGestureWarn` (sekali per sesi).
 - **Membangkitkan rekan:** progres (`revT`) hanya menyusut pelan saat penolong menjauh, dan bot yang sedang menolong
   baru beranjak kalau serangan hampir kena. Mode solo: P1 yang gugur bisa MENYERAH dari layar jeda (`canGiveUp`)
