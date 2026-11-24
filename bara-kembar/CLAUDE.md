@@ -28,6 +28,8 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
 - Level: jelajah → nyalakan api unggun (checkpoint) → kedua pemain di depan kabut → masuk arena,
   gerbang tersegel (`L.bossState='active'`) → bos tumbang → portal → kedua pemain masuk portal.
 - Level dengan `bosses: [...]` (L6, L8) = beberapa bos; menang setelah semua mati (`bossFallen` lalu `bossDefeated`).
+  Flag level `stagger` (L6): bos kedua baru menyerang setelah ±8 dtk / bos pertama terdesak, dan saat satu bos mulai
+  menyerang kembarannya menahan diri sesaat (`startAtk`). Alasannya: pemain dulu dikeroyok sejak detik pertama.
 - Kunci level: `OPEN_LEVELS` pertama terbuka; tiap level tamat membuka satu lagi. `SAVE.clearedNormal` = tanda ✦.
 - Mode Santai = nilai di `RULE` (dipakai lewat fungsinya, mis. `RULE.parryWin()`), bukan cabang kode terpisah.
 

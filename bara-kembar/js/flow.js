@@ -28,6 +28,14 @@ function respawnAll() {
   banner('', 'Bangkit kembali di api unggun', 2.2, '#e8d9b0', false);
 }
 function updateFlow(dt) {
+  // level "stagger": bos kedua ikut menyerang setelah ±8 dtk, atau lebih cepat bila bos pertama sudah terdesak
+  if (L.joinPending && L.bossState === 'active') {
+    const [a, b] = L.bosses;
+    if (a.dead || b.dead || a.hp < a.maxHp * .8 || b.cd <= 1) {
+      L.joinPending = false;
+      if (!a.dead && !b.dead) { b.cd = Math.min(b.cd, 1); banner('', BOSS_NAMES[b.type] + ' ikut bertarung!', 2, '#e8d9b0', false); }
+    }
+  }
   // revive
   for (const p of players) {
     if (!p.down) continue;
@@ -69,6 +77,7 @@ function updateFlow(dt) {
       if (!players.some(p => !p.dead && L.gates.some(g => Math.abs(p.x - g.x) < T / 2 + p.r && Math.abs(p.y - g.y) < T / 2 + p.r))) {
         L.gateState = 'sealed'; L.bossState = 'active';
         L.bosses.forEach((b, k) => { b.state = 'chase'; b.cd = 1.4 + k * .9; b.face = angTo(b, players.find(p => p.alive)); });
+        if (L.def.stagger && L.bosses[1]) { L.bosses[1].cd = 9; L.joinPending = true; } // bos kedua menahan diri dulu
         banner(bossTitle(), '', 3.5, '#e8d9b0'); Snd.roar(); Snd.music(true); shake(8);
       }
     }
@@ -92,7 +101,8 @@ function levelCleared() {
   if (!isEasy() && !SAVE.clearedNormal.includes(idx)) SAVE.clearedNormal.push(idx);
   const record = prev == null || s.t < prev; if (record) rec.best[idx] = s.t;
   saveGame();
-  G.clear = { idx, s, prev, record, easy: isEasy(), newUnlock: unlockedCount() > unlockedBefore ? unlockedCount() - 1 : -1 };
+  // salinan beku: stopwatch level masih berjalan selama layar memudar, jadi ringkasan harus sama dengan rekor yang disimpan
+  G.clear = { idx, s: JSON.parse(JSON.stringify(s)), prev, record, easy: isEasy(), newUnlock: unlockedCount() > unlockedBefore ? unlockedCount() - 1 : -1 };
   fadeTo(() => { G.mode = 'clear'; G.clearT = 0; Snd.music(false); });
 }
 function continueAfterClear() {

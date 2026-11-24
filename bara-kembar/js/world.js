@@ -195,7 +195,8 @@ const LEVELS = [
   },
   {
     // dua bos sekaligus: bos dianggap kalah setelah keduanya tumbang
-    name: 'Takhta Kembar', boss: 'ember', bosses: ['ember', 'ash'], title: 'Kembar Bara', dark: .84,
+    // stagger: bos kedua masuk belakangan & keduanya bergantian menyerang (dulu pemain dikeroyok sejak detik pertama)
+    name: 'Takhta Kembar', boss: 'ember', bosses: ['ember', 'ash'], title: 'Kembar Bara', dark: .84, stagger: true,
     floor: [40, 32, 30], wall: [74, 58, 50], fog: '255,200,170',
     map: [
       "######################################",

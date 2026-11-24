@@ -368,6 +368,8 @@ function startAtk(e, def, tgt) {
   e.state = 'atk'; e.atk = { def, ph: 'w', t: 0, tgt: tgt || e.tgt, hit: new Set() };
   def.onStart && def.onStart(e, e.atk);
   if (!def.onStart) e.boss ? Snd.bossTele() : Snd.tele();
+  // level "stagger": saat satu bos mulai menyerang, kembarannya menahan diri sesaat → serangan jarang bertumpuk
+  if (e.boss && L.def.stagger) for (const o of L.bosses) if (o !== e && !o.dead && o.state !== 'atk') o.cd = Math.max(o.cd, .9);
 }
 function runAttack(e, dt) {
   const a = e.atk, d = a.def, sp = tempo(e);
