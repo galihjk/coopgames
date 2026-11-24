@@ -407,11 +407,17 @@ function drawTouchTest() {
   for (const i of frames()) inFrame(i, (LW, LH) => {
     const y0 = LH * .5 + 80 * U, u = U;
     txt('TES SENTUH', LW / 2, y0, 20 * u, '#ffd27a', 'center', SERIF, '400');
-    txt('Taruh 4 jari sekaligus (2 per pemain) lalu geser-geser.', LW / 2, y0 + 26 * u, 10.5 * u, '#cfc3a8', 'center', 'sans-serif', '500');
-    txt('Jari aktif: ' + TT.pts.size + '    ·    maks bersamaan: ' + TT.max, LW / 2, y0 + 54 * u, 13 * u, '#e8dcc0', 'center', 'sans-serif', '700');
-    txt('Dibatalkan sistem: ' + TT.cancels, LW / 2, y0 + 76 * u, 13 * u, TT.cancels ? '#ff8a70' : '#86d66a', 'center', 'sans-serif', '700');
-    TT.log.forEach((s, k) => txt(s, LW / 2, y0 + 100 * u + k * 15 * u, 9.5 * u, '#ff9a80', 'center', 'sans-serif', '500'));
-    txt(TT.cancels ? 'Ada sentuhan direbut sistem → matikan gestur 3 jari (mis. tangkapan layar) di pengaturan HP.' : 'Kalau semua jari tampil & tidak ada yang dibatalkan, HP sanggup 4 jari.', LW / 2, y0 + 168 * u, 9.5 * u, 'rgba(232,217,176,.75)', 'center', 'sans-serif', '500');
+    txt('Uji A: 4 jari diam saja.  Uji B: 4 jari digeser.  Uji C: usap 3 jari.', LW / 2, y0 + 24 * u, 10 * u, '#cfc3a8', 'center', 'sans-serif', '500');
+    const row = (y, label, a, b, bad) => { txt(label, LW * .1, y, 11 * u, '#d8ccb0', 'left', 'sans-serif', '500'); txt(String(a), LW * .62, y, 12 * u, bad && a ? '#ff8a70' : '#e8e0d0', 'center', 'sans-serif', '700'); txt(String(b), LW * .86, y, 12 * u, bad && b ? '#ff8a70' : '#e8e0d0', 'center', 'sans-serif', '700'); };
+    let y = y0 + 50 * u;
+    txt('Pointer', LW * .62, y, 10 * u, '#ffd27a', 'center', 'sans-serif', '700'); txt('Touch', LW * .86, y, 10 * u, '#62d6cf', 'center', 'sans-serif', '700');
+    row(y += 18 * u, 'Jari aktif', TT.pts.size, TT.tch.size);
+    row(y += 18 * u, 'Maks bersamaan', TT.max, TT.tMax);
+    row(y += 18 * u, 'Lepas normal', TT.ups, TT.tUps);
+    row(y += 18 * u, 'Dibatalkan', TT.cancels, TT.tCancels, true);
+    row(y += 18 * u, 'Tetap terbaca stlh batal', '—', TT.tGhost);
+    txt('Halaman hilang fokus: ' + TT.blur + '   ·   tersembunyi: ' + TT.hidden, LW / 2, y += 22 * u, 10.5 * u, TT.blur || TT.hidden ? '#ff9a80' : '#cfc3a8', 'center', 'sans-serif', '600');
+    TT.log.forEach((s, k) => txt(s, LW / 2, y + 18 * u + k * 14 * u, 9 * u, '#ff9a80', 'center', 'sans-serif', '500'));
   });
   drawMenuButtons();
 }

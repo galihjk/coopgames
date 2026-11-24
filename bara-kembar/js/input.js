@@ -49,8 +49,17 @@ addEventListener('keyup', e => {
 const ptrs = new Map();
 // Tes sentuh: memperlihatkan semua jari di layar & berapa sentuhan yang dibatalkan sistem (pointercancel),
 // untuk membedakan batas jumlah sentuhan HP vs gestur sistem (mis. usap 3 jari = tangkapan layar).
-const TT = { pts: new Map(), max: 0, cancels: 0, downs: 0, log: [] };
-function resetTouchTest() { TT.pts.clear(); TT.max = 0; TT.cancels = 0; TT.downs = 0; TT.log = []; }
+const TT = { pts: new Map(), max: 0, cancels: 0, downs: 0, ups: 0, log: [],
+  // jalur kedua: Touch Events (dicatat berdampingan untuk dibandingkan dengan Pointer Events)
+  tch: new Map(), tMax: 0, tCancels: 0, tUps: 0, tGhost: 0, tGone: new Set(), blur: 0, hidden: 0 };
+function resetTouchTest() { TT.pts.clear(); Object.assign(TT, { max: 0, cancels: 0, downs: 0, ups: 0, log: [], tMax: 0, tCancels: 0, tUps: 0, tGhost: 0, blur: 0, hidden: 0 }); TT.tch.clear(); TT.tGone.clear(); }
+function ttLog(s) { TT.log.unshift(s); TT.log.length = Math.min(TT.log.length, 4); }
+cv.addEventListener('touchstart', e => { if (G.mode !== 'touchtest') return; for (const t of e.changedTouches) TT.tch.set(t.identifier, 1); TT.tMax = Math.max(TT.tMax, TT.tch.size); }, { passive: true });
+cv.addEventListener('touchmove', e => { if (G.mode !== 'touchtest') return; for (const t of e.changedTouches) if (TT.tGone.has(t.identifier)) { TT.tGhost++; TT.tGone.delete(t.identifier); ttLog('Touch: jari tetap terbaca SETELAH dibatalkan'); } }, { passive: true });
+cv.addEventListener('touchend', e => { if (G.mode !== 'touchtest') return; for (const t of e.changedTouches) { TT.tch.delete(t.identifier); TT.tUps++; } }, { passive: true });
+cv.addEventListener('touchcancel', e => { if (G.mode !== 'touchtest') return; for (const t of e.changedTouches) { TT.tch.delete(t.identifier); TT.tGone.add(t.identifier); TT.tCancels++; } }, { passive: true });
+addEventListener('blur', () => { if (G.mode === 'touchtest') { TT.blur++; ttLog('halaman KEHILANGAN FOKUS (blur)'); } });
+document.addEventListener('visibilitychange', () => { if (G.mode === 'touchtest' && document.hidden) { TT.hidden++; ttLog('halaman TERSEMBUNYI'); } });
 cv.addEventListener('pointerdown', e => {
   e.preventDefault(); Snd.init();
   const q = toL(e.clientX, e.clientY);
@@ -80,7 +89,7 @@ cv.addEventListener('pointermove', e => {
 function endPtr(e) {
   if (TT.pts.has(e.pointerId)) {
     const p = TT.pts.get(e.pointerId); TT.pts.delete(e.pointerId);
-    if (e.type === 'pointercancel') { TT.cancels++; TT.log.unshift('jari #' + p.n + ' DIBATALKAN sistem (saat ' + (TT.pts.size + 1) + ' jari di layar)'); TT.log.length = Math.min(TT.log.length, 4); }
+    if (e.type === 'pointercancel') { TT.cancels++; ttLog('Pointer: jari #' + p.n + ' dibatalkan (' + (TT.pts.size + 1) + ' jari di layar)'); } else TT.ups++;
     return;
   }
   const a = ptrs.get(e.pointerId); if (!a) return; ptrs.delete(e.pointerId);
