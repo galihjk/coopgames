@@ -47,6 +47,13 @@ addEventListener('keyup', e => {
   for (const n of G.solo ? [IN[0]] : [IN[m[0]]]) { if (typeof m[1] === 'number') n.kb[m[1]] = 0; else n.kx[m[1]] = 0; }
 });
 const ptrs = new Map();
+// Banyak HP (mis. Oppo/Realme/Xiaomi) memakai gestur tangkapan layar 3 jari: begitu ±3 jari menempel serentak,
+// sistem merebut & membatalkan semua sentuhan. Kalau itu terjadi saat bermain, game menjeda & menjelaskan cara mematikannya.
+const live = new Set();
+function gestureCancelled() {
+  if (G.mode !== 'play' || G.gestureWarned) return;
+  G.gestureWarned = true; G.gestureWarn = true; togglePause();
+}
 // Tes sentuh: memperlihatkan semua jari di layar & berapa sentuhan yang dibatalkan sistem (pointercancel),
 // untuk membedakan batas jumlah sentuhan HP vs gestur sistem (mis. usap 3 jari = tangkapan layar).
 const TT = { pts: new Map(), max: 0, cancels: 0, downs: 0, ups: 0, log: [],
@@ -61,7 +68,7 @@ cv.addEventListener('touchcancel', e => { if (G.mode !== 'touchtest') return; fo
 addEventListener('blur', () => { if (G.mode === 'touchtest') { TT.blur++; ttLog('halaman KEHILANGAN FOKUS (blur)'); } });
 document.addEventListener('visibilitychange', () => { if (G.mode === 'touchtest' && document.hidden) { TT.hidden++; ttLog('halaman TERSEMBUNYI'); } });
 cv.addEventListener('pointerdown', e => {
-  e.preventDefault(); Snd.init();
+  e.preventDefault(); Snd.init(); live.add(e.pointerId);
   const q = toL(e.clientX, e.clientY);
   if (G.mode === 'touchtest') {
     if (uiTap(q)) return;
@@ -87,6 +94,8 @@ cv.addEventListener('pointermove', e => {
   j.dx = dx; j.dy = dy;
 }, { passive: false });
 function endPtr(e) {
+  const fingers = live.size; live.delete(e.pointerId);
+  if (e.type === 'pointercancel' && fingers >= 3) gestureCancelled();
   if (TT.pts.has(e.pointerId)) {
     const p = TT.pts.get(e.pointerId); TT.pts.delete(e.pointerId);
     if (e.type === 'pointercancel') { TT.cancels++; ttLog('Pointer: jari #' + p.n + ' dibatalkan (' + (TT.pts.size + 1) + ' jari di layar)'); } else TT.ups++;

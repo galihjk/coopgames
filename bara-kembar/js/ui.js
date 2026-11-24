@@ -281,7 +281,7 @@ function uiTap(q) {
         else if (b.id === 'prev') pickLevel(-1);
         else if (b.id === 'next') pickLevel(1);
         else if (b.id === 'lvl' || b.id === 'start') startGame(G.sel);
-        else if (b.id === 'resume') G.mode = 'play';
+        else if (b.id === 'resume') { G.mode = 'play'; G.gestureWarn = false; }
         else if (b.id === 'quit' || b.id === 'title') { G.mode = 'title'; Snd.music(false); }
         return true;
       }
@@ -291,7 +291,7 @@ function uiTap(q) {
 }
 function togglePause() {
   if (G.mode === 'play') { G.mode = 'pause'; for (const n of IN) { n.tb = [0, 0, 0]; n.joy = null; n.buf = [-1, -1, -1]; } ptrs.clear(); }
-  else if (G.mode === 'pause') G.mode = 'play';
+  else if (G.mode === 'pause') { G.mode = 'play'; G.gestureWarn = false; }
 }
 function drawTitle() {
   emberBg(1 / 60);
@@ -300,7 +300,7 @@ function drawTitle() {
   for (const i of frames()) inFrame(i, (LW, LH) => {
     txt('BARA KEMBAR', LW / 2, TITLE_Y(LH), 34 * U, '#e8d9b0', 'center', SERIF, '400');
     txt(G.solo ? 'satu jiwa, satu bara pendamping' : 'dua jiwa, satu nyala', LW / 2, TITLE_Y(LH) + 28 * U, 13 * U, '#b8a888', 'center', SERIF, 'italic 400');
-    txt(G.solo ? 'Pegang HP tegak • Bot menjadi rekanmu' : i === 0 ? 'Letakkan HP mendatar • kamu P1, rekanmu (P2) di seberang' : 'Kamu P2 • P1 di seberang yang memilih mode & level', LW / 2, LH - 16 * U, 10.5 * U, 'rgba(220,210,190,.6)', 'center', 'sans-serif', '500');
+    txt(G.solo ? 'Pegang HP tegak • Bot menjadi rekanmu' : i === 0 ? (Math.floor(G.t / 4) % 2 ? '⚠ Main berdua? Matikan dulu gestur 3 jari HP (tangkapan layar)' : 'Letakkan HP mendatar • kamu P1, rekanmu (P2) di seberang') : 'Kamu P2 • P1 di seberang yang memilih mode & level', LW / 2, LH - 16 * U, 10.5 * U, 'rgba(220,210,190,.6)', 'center', 'sans-serif', '500');
     const y0 = titleY0(LH);
     if (i === 0) {
       txt('Warnamu', LW / 2, y0 + 176 * U, 10 * U, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '600');
@@ -321,7 +321,8 @@ function drawPause() {
   for (const i of frames()) inFrame(i, (LW, LH) => {
     if (G.solo) txt('JEDA', LW / 2, LH * .3, 30 * U, '#e8d9b0', 'center', SERIF, '400');
     else txt('JEDA', 12 * U + 48 * U, LH / 2 + 22 * U, 24 * U, '#e8d9b0', 'center', SERIF, '400');
-    drawCallouts(players[i], LW, LH - 226 * U, 1, G.solo); // petunjuk tombol tetap terbaca saat jeda
+    if (G.gestureWarn) drawGestureWarn(LW, LH);
+    else drawCallouts(players[i], LW, LH - 226 * U, 1, G.solo); // petunjuk tombol tetap terbaca saat jeda
     if (i === 1) waitP1(LW, LH); // tombol LANJUT/KE JUDUL hanya di P1
   });
   drawMenuButtons();
@@ -420,4 +421,19 @@ function drawTouchTest() {
     TT.log.forEach((s, k) => txt(s, LW / 2, y + 18 * u + k * 14 * u, 9 * u, '#ff9a80', 'center', 'sans-serif', '500'));
   });
   drawMenuButtons();
+}
+
+// peringatan: kontrol diputus gestur 3 jari HP (muncul sekali per sesi, di layar jeda)
+const GESTURE_WARN = [
+  ['⚠ Kontrol terputus', '#ffb347', 15],
+  ['HP membatalkan sentuhan karena', '#e8dcc0', 11],
+  ['gestur 3 jari (tangkapan layar).', '#e8dcc0', 11],
+  ['Matikan di Pengaturan HP:', '#ffd27a', 11],
+  ['• usap 3 jari ke bawah', '#e8dcc0', 11],
+  ['• sentuh & tahan 3 jari', '#e8dcc0', 11],
+  ['(biasanya di menu Tangkapan layar / Gestur)', 'rgba(232,217,176,.65)', 9.5],
+];
+function drawGestureWarn(LW, LH) {
+  const solo = G.solo, x = solo ? LW / 2 : 124 * U, y0 = solo ? LH * .3 + 100 * U : LH / 2 + 22 * U, gap = solo ? 19 : 16; // 2 pemain: rapat agar tidak menimpa bar HP
+  GESTURE_WARN.forEach(([s, c, sz], k) => txt(s, x, y0 + k * gap * U + (k ? 6 * U : 0), sz * U, c, solo ? 'center' : 'left', 'sans-serif', k ? '500' : '700'));
 }
