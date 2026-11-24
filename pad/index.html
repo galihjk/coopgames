@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<title>Pengendali coopgames</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b1020;color:#e8ebf7;font-family:"Segoe UI",system-ui,sans-serif;
+    overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;overscroll-behavior:none}
+  canvas{display:block;position:fixed;inset:0;width:100%;height:100%;touch-action:none}
+  #gabung{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;text-align:center;background:#0b1020}
+  #gabung h1{margin:0;font-size:1.4rem}
+  #gabung p{margin:0;color:#9aa3c7;max-width:340px;line-height:1.45;font-size:.9rem}
+  #kode{font:700 2rem/1 ui-monospace,monospace;letter-spacing:.3em;text-align:center;text-transform:uppercase;width:8ch;padding:10px 0 10px .3em;
+    border-radius:12px;border:1px solid #2a3358;background:#141a2e;color:#fff}
+  #tombolGabung{font:700 1.1rem system-ui;padding:14px 34px;border-radius:14px;border:0;background:#6c8dff;color:#0b1020}
+  #statusGabung{min-height:1.4em;color:#ffc46b;font-size:.9rem}
+  #gabung{overflow:auto}
+  @media (max-height:420px){ /* HP mendatar: ringkas supaya tidak terpotong */
+    #gabung{gap:8px;justify-content:flex-start;padding-top:12px}
+    #gabung h1{font-size:1.1rem} #gabung p{font-size:.8rem} #kode{font-size:1.5rem;padding:6px 0 6px .3em} #tombolGabung{padding:10px 30px}
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="gabung">
+  <h1>🎮 Pengendali coopgames</h1>
+  <p>Masukkan kode yang tampil di layar komputer. HP dan komputer sebaiknya tersambung ke WiFi yang sama.</p>
+  <input id="kode" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Kode ruang">
+  <button id="tombolGabung" type="button">Gabung</button>
+  <div id="statusGabung" aria-live="polite"></div>
+  <p>Pegang HP mendatar. Layar akan menjadi layar penuh.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="koneksi.js"></script>
+<script>
+'use strict';
+// =====================================================================
+//  PENGENDALI AKSI (HP)
+//  Kiri : joystick mengambang (muncul di titik jempol mendarat).
+//  Kanan: 3 tombol aksi. Ketuk = aksi ke arah hadap. Tahan + geser = membidik;
+//         dilepas = aksi ke arah bidikan. Selama ditahan, arah bidik terkirim terus.
+//
+//  Pesan ke layar (±60×/dtk saat ada perubahan, minimal 10×/dtk):
+//    { t:'s', q:nomorUrut, mx, my,  b:[ [tahan, bidikX, bidikY, jumlahLepas, lepasX, lepasY] ×3 ] }
+//    - mx,my  : arah joystick, panjang 0..1
+//    - bidik  : vektor satuan saat sedang membidik, 0,0 jika belum digeser
+//    - jumlahLepas bertambah tiap tombol dilepas (= satu aksi). Karena berupa penghitung,
+//      aksi tidak hilang walaupun ada paket yang jatuh; lepasX/Y = arah bidik saat dilepas.
+//  Pesan dari layar: {t:'i', nomor, warna, rtt} info pemain; {t:'v', pola} getarkan HP.
+// =====================================================================
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const elGabung = document.getElementById('gabung'), elKode = document.getElementById('kode'), elStatus = document.getElementById('statusGabung');
+let W = 0, H = 0, DPR = 1, U = 1;
+
+const TOMBOL = [
+  { nama: 'SERANG', warna: '#ff7a5c' },
+  { nama: 'GULING', warna: '#7ee0a8' },
+  { nama: 'SKILL',  warna: '#b48cff' },
+];
+const st = {
+  stick: null,                                    // {id, ox, oy, x, y}
+  b: TOMBOL.map(() => ({ id: null, ox: 0, oy: 0, x: 0, y: 0, ax: 0, ay: 0, c: 0, lx: 0, ly: 0 })),
+  q: 0, kotor: true, kirimTerakhir: 0,
+  info: null, status: 'belum', aktif: false,
+};
+let net = null, wakeLock = null;
+
+// ---------- tata letak (dihitung dari ukuran layar; dirancang untuk HP mendatar) ----------
+function resize() {
+  DPR = Math.min(2, devicePixelRatio || 1);
+  W = innerWidth; H = innerHeight; U = Math.min(W, H);
+  cv.width = W * DPR; cv.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const pos = [[W - .26 * U, H - .30 * U, .15], [W - .58 * U, H - .17 * U, .11], [W - .17 * U, H - .66 * U, .11]];
+  TOMBOL.forEach((t, i) => { t.x = pos[i][0]; t.y = pos[i][1]; t.r = pos[i][2] * U; });
+}
+addEventListener('resize', resize); resize();
+const mendatar = () => W > H;
+
+// ---------- sentuhan ----------
+function tombolDi(x, y) {
+  let pilih = -1, terdekat = Infinity;
+  TOMBOL.forEach((t, i) => { const d = Math.hypot(x - t.x, y - t.y); if (d < t.r * 1.3 && d < terdekat) { terdekat = d; pilih = i; } });
+  return pilih;
+}
+cv.addEventListener('pointerdown', e => {
+  if (!st.aktif) return;
+  e.preventDefault();
+  const x = e.clientX, y = e.clientY, i = tombolDi(x, y);
+  if (i >= 0) {
+    const b = st.b[i]; if (b.id !== null) return;
+    Object.assign(b, { id: e.pointerId, ox: x, oy: y, x, y, ax: 0, ay: 0 });
+    getar(12);
+  } else if (x < W * .55 && !st.stick) {
+    st.stick = { id: e.pointerId, ox: x, oy: y, x, y };
+  } else return;
+  st.kotor = true;
+  try { cv.setPointerCapture(e.pointerId); } catch (err) { /* sebagian browser menolak; tidak wajib */ }
+});
+cv.addEventListener('pointermove', e => {
+  const x = e.clientX, y = e.clientY;
+  if (st.stick && st.stick.id === e.pointerId) { st.stick.x = x; st.stick.y = y; st.kotor = true; }
+  for (const b of st.b) if (b.id === e.pointerId) {
+    b.x = x; b.y = y;
+    const dx = x - b.ox, dy = y - b.oy, d = Math.hypot(dx, dy);
+    if (d > .045 * U) { b.ax = dx / d; b.ay = dy / d; } else if (d < .02 * U) { b.ax = b.ay = 0; } // kembali ke tengah = batal bidik
+    st.kotor = true;
+  }
+});
+function lepas(e, batal) {
+  if (st.stick && st.stick.id === e.pointerId) { st.stick = null; st.kotor = true; }
+  for (const b of st.b) if (b.id === e.pointerId) {
+    b.id = null;
+    if (!batal) { b.c++; b.lx = b.ax; b.ly = b.ay; } // pointercancel (mis. gestur sistem) tidak memicu aksi
+    b.ax = b.ay = 0; st.kotor = true;
+  }
+}
+cv.addEventListener('pointerup', e => lepas(e, false));
+cv.addEventListener('pointercancel', e => lepas(e, true));
+cv.addEventListener('contextmenu', e => e.preventDefault());
+
+function arahStick() {
+  const s = st.stick; if (!s) return [0, 0];
+  const R = .16 * U, dx = s.x - s.ox, dy = s.y - s.oy, d = Math.hypot(dx, dy);
+  if (d < 3) return [0, 0];
+  const m = Math.min(1, d / R);
+  return [dx / d * m, dy / d * m];
+}
+const r3 = v => Math.round(v * 1000) / 1000;
+function kirimStatus(now) {
+  if (!net || !net.tersambung) return;
+  if (!st.kotor && now - st.kirimTerakhir < 100) return;
+  const [mx, my] = arahStick();
+  const ok = net.kirim({ t: 's', q: ++st.q, mx: r3(mx), my: r3(my),
+    b: st.b.map(b => [b.id !== null ? 1 : 0, r3(b.ax), r3(b.ay), b.c, r3(b.lx), r3(b.ly)]) });
+  if (ok) { st.kotor = false; st.kirimTerakhir = now; }
+}
+function getar(pola) { try { navigator.vibrate && navigator.vibrate(pola); } catch (e) { /* tidak didukung */ } }
+
+// ---------- gabung ----------
+elKode.value = CoopNet.rapikanKode(decodeURIComponent(location.hash.slice(1)));
+elKode.addEventListener('input', () => { elKode.value = CoopNet.rapikanKode(elKode.value); });
+document.getElementById('tombolGabung').addEventListener('click', async () => {
+  const kode = CoopNet.rapikanKode(elKode.value);
+  if (!CoopNet.kodeSah(kode)) { elStatus.textContent = `Kode harus ${CoopNet.PANJANG_KODE} huruf/angka.`; return; }
+  history.replaceState(null, '', '#' + kode);
+  // layar penuh + kunci mendatar harus dipicu langsung oleh ketukan; gagal pun tidak apa-apa
+  try { await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch (e) { /* tidak didukung */ }
+  try { await screen.orientation.lock('landscape'); } catch (e) { /* tidak didukung */ }
+  mintaWakeLock();
+  elGabung.style.display = 'none'; st.aktif = true;
+  if (net) net.berhenti();
+  net = CoopNet.pad(kode, {
+    onStatus(s, info) { st.status = s; st.pesanStatus = info || ''; if (s === 'tersambung') getar([20, 40, 20]); },
+    onData(d) {
+      if (d.t === 'i') st.info = d;
+      else if (d.t === 'v') getar(d.pola || 40);
+    },
+  });
+});
+async function mintaWakeLock() { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { /* tidak didukung */ } }
+document.addEventListener('visibilitychange', () => { if (!document.hidden && st.aktif) mintaWakeLock(); });
+
+// ---------- gambar ----------
+function teks(s, x, y, ukuran, warna, rata = 'center', tebal = 700) {
+  ctx.font = `${tebal} ${ukuran}px system-ui,sans-serif`; ctx.fillStyle = warna; ctx.textAlign = rata; ctx.textBaseline = 'middle'; ctx.fillText(s, x, y);
+}
+function gambar() {
+  ctx.fillStyle = '#0b1020'; ctx.fillRect(0, 0, W, H);
+  if (!st.aktif) return;
+  if (!mendatar()) {
+    teks('⟳', W / 2, H / 2 - 40, 64, '#6c8dff');
+    teks('Putar HP mendatar', W / 2, H / 2 + 20, 22, '#e8ebf7');
+    teks('Kunci rotasi mati? Ketuk ⛶ di pojok setelah memutar.', W / 2, H / 2 + 54, 13, '#9aa3c7', 'center', 400);
+    return;
+  }
+  const warnaPemain = st.info ? st.info.warna : '#6c8dff';
+  // bilah atas: nomor pemain, status, ping
+  const ket = st.status === 'tersambung'
+    ? `P${st.info ? st.info.nomor : '?'}  ·  ping ${st.info && st.info.rtt != null ? Math.round(st.info.rtt) + ' ms' : '…'}`
+    : st.status === 'menyambung' ? 'Menyambung…' : st.status === 'terputus' ? 'Terputus — menyambung ulang…' : (st.pesanStatus || st.status);
+  ctx.fillStyle = st.status === 'tersambung' ? warnaPemain : '#ffc46b';
+  ctx.globalAlpha = .18; ctx.fillRect(0, 0, W, 34); ctx.globalAlpha = 1;
+  teks(ket, W / 2, 17, 15, st.status === 'tersambung' ? warnaPemain : '#ffc46b');
+  teks('⛶', W - 22, 17, 18, '#9aa3c7');
+
+  // joystick
+  const s = st.stick;
+  if (s) {
+    const R = .16 * U, [mx, my] = arahStick();
+    ctx.strokeStyle = warnaPemain; ctx.lineWidth = 3; ctx.globalAlpha = .55;
+    ctx.beginPath(); ctx.arc(s.ox, s.oy, R, 0, 7); ctx.stroke();
+    ctx.globalAlpha = .8; ctx.fillStyle = warnaPemain;
+    ctx.beginPath(); ctx.arc(s.ox + mx * R, s.oy + my * R, R * .42, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+  } else {
+    ctx.globalAlpha = .25; ctx.strokeStyle = '#9aa3c7'; ctx.lineWidth = 2; ctx.setLineDash([6, 8]);
+    ctx.beginPath(); ctx.arc(W * .22, H * .6, .16 * U, 0, 7); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    teks('GESER UNTUK GERAK', W * .22, H * .6, 13, '#9aa3c7');
+  }
+
+  // tombol aksi
+  TOMBOL.forEach((t, i) => {
+    const b = st.b[i], tahan = b.id !== null;
+    ctx.globalAlpha = tahan ? .9 : .35; ctx.fillStyle = t.warna;
+    ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1; ctx.lineWidth = 3; ctx.strokeStyle = t.warna;
+    ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, 7); ctx.stroke();
+    teks(t.nama, t.x, t.y, Math.max(11, t.r * .3), tahan ? '#0b1020' : '#fff');
+    if (tahan && (b.ax || b.ay)) { // panah bidik
+      const L = t.r * 1.9, ex = t.x + b.ax * L, ey = t.y + b.ay * L, a = Math.atan2(b.ay, b.ax);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(t.x + b.ax * t.r, t.y + b.ay * t.r); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex - Math.cos(a - .5) * 14, ey - Math.sin(a - .5) * 14);
+      ctx.moveTo(ex, ey); ctx.lineTo(ex - Math.cos(a + .5) * 14, ey - Math.sin(a + .5) * 14); ctx.stroke();
+    }
+  });
+  teks('ketuk = aksi  ·  tahan + geser = bidik, lepas = aksi', W - .42 * U, 50, 11, '#9aa3c7', 'center', 400);
+}
+cv.addEventListener('click', e => { // tombol ⛶ di pojok kanan atas
+  if (st.aktif && e.clientX > W - 44 && e.clientY < 34) {
+    document.documentElement.requestFullscreen().then(() => screen.orientation.lock('landscape')).catch(() => {});
+  }
+});
+
+function loop(now) { kirimStatus(now); gambar(); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

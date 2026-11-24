@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1020">
+<title>Uji Koneksi — Layar + HP</title>
+<style>
+  :root{--bg:#0b1020;--panel:#141a2e;--garis:#2a3358;--aksen:#6c8dff;--teks:#e8ebf7;--redup:#9aa3c7;--baik:#7ee0a8;--waspada:#ffc46b;--buruk:#ff6b6b}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--teks);font-family:"Segoe UI",system-ui,sans-serif}
+  body{display:grid;grid-template-columns:1fr 340px;height:100vh}
+  #arena{width:100%;height:100%;display:block;background:radial-gradient(900px 600px at 50% 40%,#18213f 0%,#0b1020 70%)}
+  aside{background:var(--panel);border-left:1px solid var(--garis);padding:18px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+  h1{font-size:1.05rem;margin:0}
+  .redup{color:var(--redup);font-size:.82rem;line-height:1.45;margin:0}
+  #qr{background:#fff;border-radius:12px;padding:10px;width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center}
+  #qr svg{width:100%;height:100%}
+  /* setelah ada pemain, QR diperkecil supaya statistik terlihat tanpa menggulir */
+  body.ada-pemain #qr{width:150px;margin:0 auto}
+  body.ada-pemain #kode{font-size:1.6rem}
+  #kode{font:700 2.4rem/1 ui-monospace,monospace;letter-spacing:.25em;text-align:center}
+  #url{font:.78rem ui-monospace,monospace;color:var(--redup);text-align:center;word-break:break-all}
+  #status{font-size:.82rem;text-align:center;color:var(--waspada)}
+  .pemain{border:1px solid var(--garis);border-radius:10px;padding:10px 12px;font-size:.8rem;display:grid;gap:4px}
+  .pemain .judul{display:flex;align-items:center;gap:8px;font-weight:700;font-size:.9rem}
+  .pemain .titik{width:12px;height:12px;border-radius:50%}
+  .pemain .angka{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;color:var(--redup)}
+  .pemain .angka b{color:var(--teks);font-weight:600}
+  .baik{color:var(--baik)!important}.waspada{color:var(--waspada)!important}.buruk{color:var(--buruk)!important}
+  button{font:600 .85rem system-ui;padding:10px;border-radius:10px;border:1px solid var(--garis);background:#1d2542;color:var(--teks);cursor:pointer}
+  details{font-size:.8rem;color:var(--redup)}
+  details summary{cursor:pointer;color:var(--teks)}
+  details p{margin:6px 0;line-height:1.45}
+  @media (max-width:760px){body{grid-template-columns:1fr;grid-template-rows:55vh auto;height:auto}aside{border-left:0;border-top:1px solid var(--garis)}#qr{max-width:240px;margin:0 auto}}
+</style>
+</head>
+<body>
+<canvas id="arena"></canvas>
+<aside>
+  <h1>🔌 Uji Koneksi · Layar + HP</h1>
+  <p class="redup">Pindai QR dengan kamera HP, atau buka alamat di bawah lalu masukkan kodenya. Bisa sampai 8 HP. Sambungkan HP dan komputer ke WiFi yang sama.</p>
+  <div id="qr"><span class="redup">Membuat ruang…</span></div>
+  <div id="kode">····</div>
+  <div id="url"></div>
+  <div id="status" aria-live="polite">Menghubungi server perantara…</div>
+  <div id="daftar"></div>
+  <button id="getar" type="button">📳 Getarkan semua HP</button>
+  <details>
+    <summary>Cara membaca angka</summary>
+    <p><b>Ping</b> = waktu bolak-balik layar → HP → layar. Jeda kontrol kira-kira separuhnya.</p>
+    <p><b>Terburuk</b> dan <b>lonjakan</b> dihitung dari 30 detik terakhir. Lonjakan = ping di atas 100 ms. Untuk game aksi, yang penting lonjakannya jarang, bukan hanya rata-ratanya kecil.</p>
+    <p><b>Paket/dtk</b> = kiriman HP per detik (±60 saat jempol bergerak, ±10 saat diam). <b>Telat</b> = paket yang tiba setelah paket yang lebih baru (dibuang).</p>
+    <p>Di arena: gerakkan joystick, lalu ketuk tombol (aksi ke arah hadap) atau tahan dan geser (bidik, lepas = aksi). Coba kenai boneka sasaran.</p>
+  </details>
+</aside>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="../pad/koneksi.js"></script>
+<script>
+'use strict';
+// =====================================================================
+//  UJI KONEKSI (layar komputer)
+//  Menerima pesan pengendali aksi dari pad/index.html (format dijelaskan di sana),
+//  menggerakkan satu karakter per HP, dan mengukur ping/lonjakan/paket per pemain.
+//  Aksi: SERANG = tebasan busur, GULING = dorongan cepat, SKILL = proyektil.
+// =====================================================================
+const $ = id => document.getElementById(id);
+const cv = $('arena'), ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(2, devicePixelRatio || 1);
+  const r = cv.getBoundingClientRect(); W = r.width; H = r.height;
+  cv.width = W * DPR; cv.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  boneka.forEach((b, i) => { b.x = W * (.25 + .25 * i); b.y = H * (i === 1 ? .28 : .4); });
+}
+const WARNA = ['#4fc3ff', '#ff6fa8', '#7ee07a', '#ffc34d', '#b48cff', '#ff8a4d', '#4de0d0', '#f0f0f0'];
+const AKSI = ['SERANG', 'GULING', 'SKILL'], WARNA_AKSI = ['#ff7a5c', '#7ee0a8', '#b48cff'];
+const pemain = new Map(); // idPerangkat -> data pemain
+const boneka = [0, 1, 2].map(() => ({ x: 0, y: 0, r: 22, kilat: 0, kena: 0 }));
+const efek = [], peluru = [];
+window.ujiState = { pemain, boneka }; // untuk uji otomatis
+
+// ---------- jaringan ----------
+const net = CoopNet.host({
+  onSiap(kode) {
+    const url = new URL('../pad/', location.href).href.replace(/\/$/, '/') + '#' + kode;
+    $('kode').textContent = kode; $('url').textContent = url.replace(/^https?:\/\//, '');
+    const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+    $('qr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+    $('status').textContent = location.protocol === 'file:' ? 'Dibuka dari file lokal: QR hanya berguna di situs online.' : 'Siap. Menunggu HP…';
+  },
+  onMasuk(id) {
+    let p = pemain.get(id);
+    if (!p) {
+      const dipakai = new Set([...pemain.values()].map(x => x.nomor));
+      let nomor = 1; while (dipakai.has(nomor)) nomor++;
+      p = { id, nomor, warna: WARNA[(nomor - 1) % WARNA.length], x: W / 2 + (nomor - 4) * 40, y: H * .7, fx: 0, fy: -1,
+        mx: 0, my: 0, b: [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]], cLama: null, guling: 0, gx: 0, gy: 0,
+        q: 0, telat: 0, rtt: [], paket: [], dataTerakhir: 0, aksi: 0 };
+      pemain.set(id, p);
+    }
+    p.tersambung = true; p.dataTerakhir = performance.now();
+    net.kirim(id, { t: 'i', nomor: p.nomor, warna: p.warna, rtt: null });
+    $('status').textContent = `P${p.nomor} masuk.`;
+  },
+  onKeluar(id) { const p = pemain.get(id); if (p) { p.tersambung = false; $('status').textContent = `P${p.nomor} terputus.`; } },
+  onPing(id, ms) {
+    const p = pemain.get(id); if (!p) return;
+    p.rtt.push({ t: performance.now(), v: ms });
+    net.kirim(id, { t: 'i', nomor: p.nomor, warna: p.warna, rtt: ms });
+  },
+  onData(id, d) {
+    const p = pemain.get(id); if (!p || d.t !== 's') return;
+    const now = performance.now();
+    p.paket.push(now); p.dataTerakhir = now;
+    if (d.q <= p.q) { p.telat++; return; } // paket lama yang datang belakangan dibuang
+    p.q = d.q; p.mx = d.mx; p.my = d.my;
+    d.b.forEach((b, i) => {
+      if (p.cLama && b[3] > p.cLama[i]) aksi(p, i, b[4], b[5]); // penghitung bertambah = tombol dilepas
+    });
+    p.cLama = d.b.map(b => b[3]);
+    p.b = d.b;
+  },
+  onGalat(err) { $('status').textContent = 'Galat koneksi: ' + (err.type || err) + '. Muat ulang halaman.'; },
+});
+$('getar').onclick = () => net.kirimSemua({ t: 'v', pola: [60, 40, 60] });
+
+// ---------- aksi ----------
+function aksi(p, i, lx, ly) {
+  let dx = lx, dy = ly;
+  if (!dx && !dy) { dx = p.fx; dy = p.fy; } // tanpa bidikan: ke arah hadap
+  p.fx = dx; p.fy = dy; p.aksi++;
+  if (i === 0) {
+    efek.push({ jenis: 'tebas', x: p.x, y: p.y, a: Math.atan2(dy, dx), t: .22, warna: WARNA_AKSI[0] });
+    for (const b of boneka) {
+      const ex = b.x - p.x, ey = b.y - p.y, d = Math.hypot(ex, ey);
+      if (d < 78 + b.r && (ex * dx + ey * dy) / (d || 1) > .5) kenai(b, p);
+    }
+  } else if (i === 1) {
+    p.guling = .22; p.gx = dx; p.gy = dy;
+  } else {
+    peluru.push({ x: p.x + dx * 20, y: p.y + dy * 20, vx: dx * 560, vy: dy * 560, hidup: 1.1, p });
+  }
+}
+function kenai(b, p) { b.kilat = .25; b.kena++; net.kirim(p.id, { t: 'v', pola: 25 }); }
+
+// ---------- update ----------
+function update(dt) {
+  for (const p of pemain.values()) {
+    const m = Math.hypot(p.mx, p.my);
+    if (m > .2 && !p.guling) { p.fx = p.mx / m; p.fy = p.my / m; } // arah hadap langsung mengikuti joystick
+    let vx = p.mx * 230, vy = p.my * 230;
+    if (p.guling > 0) { p.guling = Math.max(0, p.guling - dt); vx = p.gx * 720; vy = p.gy * 720; efek.push({ jenis: 'bayang', x: p.x, y: p.y, t: .18, warna: p.warna }); }
+    p.x = Math.max(16, Math.min(W - 16, p.x + vx * dt));
+    p.y = Math.max(16, Math.min(H - 16, p.y + vy * dt));
+  }
+  for (const s of peluru) {
+    s.x += s.vx * dt; s.y += s.vy * dt; s.hidup -= dt;
+    for (const b of boneka) if (s.hidup > 0 && Math.hypot(s.x - b.x, s.y - b.y) < b.r + 6) { kenai(b, s.p); s.hidup = 0; }
+  }
+  for (let i = peluru.length - 1; i >= 0; i--) if (peluru[i].hidup <= 0) peluru.splice(i, 1);
+  for (const e of efek) e.t -= dt;
+  for (let i = efek.length - 1; i >= 0; i--) if (efek[i].t <= 0) efek.splice(i, 1);
+  for (const b of boneka) b.kilat = Math.max(0, b.kilat - dt);
+}
+
+// ---------- gambar ----------
+function gambar() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(108,141,255,.07)'; ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 48) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 48) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  for (const b of boneka) {
+    ctx.fillStyle = b.kilat ? '#fff' : '#5b6488'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#9aa3c7'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(b.x, b.y, b.r * .55, 0, 7); ctx.stroke();
+    ctx.fillStyle = '#9aa3c7'; ctx.font = '600 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText(`kena ${b.kena}`, b.x, b.y + b.r + 16);
+  }
+  for (const e of efek) {
+    ctx.globalAlpha = Math.max(0, e.t / .22);
+    if (e.jenis === 'tebas') {
+      ctx.strokeStyle = e.warna; ctx.lineWidth = 10; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(e.x, e.y, 62, e.a - 1, e.a + 1); ctx.stroke();
+    } else { ctx.fillStyle = e.warna; ctx.globalAlpha *= .35; ctx.beginPath(); ctx.arc(e.x, e.y, 14, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  for (const s of peluru) { ctx.fillStyle = WARNA_AKSI[2]; ctx.beginPath(); ctx.arc(s.x, s.y, 6, 0, 7); ctx.fill(); }
+  for (const p of pemain.values()) {
+    ctx.globalAlpha = p.tersambung ? 1 : .3;
+    // bidikan tombol yang sedang ditahan
+    p.b.forEach((b, i) => {
+      if (!b[0]) return;
+      ctx.strokeStyle = WARNA_AKSI[i]; ctx.lineWidth = 3;
+      if (b[1] || b[2]) {
+        ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + b[1] * 150, p.y + b[2] * 150); ctx.stroke(); ctx.setLineDash([]);
+      } else { ctx.beginPath(); ctx.arc(p.x, p.y, 24, 0, 7); ctx.stroke(); }
+    });
+    ctx.fillStyle = p.warna; ctx.beginPath(); ctx.arc(p.x, p.y, 15, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + p.fx * 24, p.y + p.fy * 24); ctx.stroke();
+    ctx.fillStyle = '#0b1020'; ctx.font = '800 11px system-ui'; ctx.textAlign = 'center'; ctx.fillText('P' + p.nomor, p.x, p.y + 4);
+    ctx.globalAlpha = 1;
+  }
+  if (!pemain.size) {
+    ctx.fillStyle = '#9aa3c7'; ctx.font = '600 18px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('Pindai QR di samping dengan HP untuk bergabung', W / 2, H / 2);
+  }
+}
+
+// ---------- statistik ----------
+function kelas(ms) { return ms == null ? '' : ms < 50 ? 'baik' : ms < 100 ? 'waspada' : 'buruk'; }
+function perbaruiDaftar() {
+  const now = performance.now(), html = [];
+  for (const p of [...pemain.values()].sort((a, b) => a.nomor - b.nomor)) {
+    p.rtt = p.rtt.filter(r => now - r.t < 30000); p.paket = p.paket.filter(t => now - t < 1000);
+    const v = p.rtt.map(r => r.v), akhir = v.length ? v[v.length - 1] : null;
+    const rata = v.length ? v.reduce((a, b) => a + b, 0) / v.length : null, maks = v.length ? Math.max(...v) : null;
+    const lonjakan = v.filter(x => x > 100).length, diam = (now - p.dataTerakhir) / 1000;
+    const ket = !p.tersambung ? '<span class="buruk">terputus</span>' : diam > 2 ? `<span class="waspada">tak ada data ${diam.toFixed(0)} dtk</span>` : '<span class="baik">tersambung</span>';
+    const f = x => x == null ? '…' : Math.round(x) + ' ms';
+    html.push(`<div class="pemain"><div class="judul"><span class="titik" style="background:${p.warna}"></span>P${p.nomor} · ${ket}</div>
+      <div class="angka"><span>Ping</span><b class="${kelas(akhir)}">${f(akhir)}</b>
+      <span>Rata-rata 30 dtk</span><b class="${kelas(rata)}">${f(rata)}</b>
+      <span>Terburuk 30 dtk</span><b class="${kelas(maks)}">${f(maks)}</b>
+      <span>Lonjakan &gt;100 ms</span><b class="${lonjakan ? 'waspada' : 'baik'}">${lonjakan} dari ${v.length}</b>
+      <span>Paket/dtk · telat</span><b>${p.paket.length} · ${p.telat}</b>
+      <span>Aksi diterima</span><b>${p.aksi}</b></div></div>`);
+  }
+  $('daftar').innerHTML = html.join('');
+  document.body.classList.toggle('ada-pemain', pemain.size > 0);
+}
+setInterval(perbaruiDaftar, 500);
+
+addEventListener('resize', resize); resize();
+let tLama = performance.now();
+function loop(now) { const dt = Math.min(.05, (now - tLama) / 1000); tLama = now; update(dt); gambar(); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
