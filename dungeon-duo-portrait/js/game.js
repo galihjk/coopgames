@@ -55,7 +55,9 @@
     victoryTitle: document.getElementById('victory-title'), victoryDetail: document.getElementById('victory-detail'), victoryStats: document.getElementById('victory-stats'),
     victoryContinue: document.getElementById('victory-continue-button'),
     powerup: document.getElementById('powerup-screen'), powerupTitle: document.getElementById('powerup-title'),
-    powerupOptions: document.getElementById('powerup-options'), powerupReroll: document.getElementById('powerup-reroll-button')
+    powerupOptions: document.getElementById('powerup-options'), powerupReroll: document.getElementById('powerup-reroll-button'),
+    modeButton: document.getElementById('mode-button'), p2Label: document.getElementById('p2-label'), p2UpgradeTitle: document.getElementById('p2-upgrade-title'),
+    helpP1: document.getElementById('help-p1'), helpP2: document.getElementById('help-p2'), helpP2Title: document.getElementById('help-p2-title')
   };
 
   const input = {
@@ -68,6 +70,17 @@
   let lastTime = performance.now();
   let toastTimer = 0;
   let enemyUid = 1;
+
+  // --- Mode solo + bot -------------------------------------------------------
+  // Bot hanya mengisi input.sticks[1].vector seperti jempol P2; semua aturan game tetap sama.
+  // Aturan kalah solo = aturan bawaan: run gagal hanya bila P1 dan bot sama-sama down.
+  let soloMode = loadSoloPreference();
+  const bot = { trail:[], stuckTimer:0, farTimer:0, lastPos:null, progressTimer:0, tapCooldown:0, stopped:false, stats:{teleports:0,revives:0,upgrades:0,powerups:0} };
+  function loadSoloPreference(){try{return localStorage.getItem('dungeonDuoSolo')==='1';}catch(_){return false;}}
+  function saveSoloPreference(){try{localStorage.setItem('dungeonDuoSolo',soloMode?'1':'0');}catch(_){} }
+  function isBot(p){return soloMode&&p&&p.id===2;}
+  function shortName(p){return isBot(p)?'BOT':`P${p.id}`;}
+  function longName(p){return isBot(p)?'Bot':`Player ${p.id}`;}
 
   function createStick(x, y) {
     return { active:false, pointerId:null, origin:{x,y}, knob:{x,y}, vector:{x:0,y:0}, radius:68 };
@@ -197,7 +210,7 @@
       p.x=start.x;p.y=start.y;p.hp=Math.max(1,Math.min(p.maxHp,p.hp));p.shield=p.maxShield;
       p.downed=false;p.reviveProgress=0;p.invuln=2.5;p.attackState='idle';p.target=null;p.deathProtection=p.deathProtectionMax||p.deathProtection||0;
     });
-    placePlayersSafely();
+    placePlayersSafely();resetBot();
     const midpoint=midpointOfPlayers();state.camera={x:midpoint.x,y:midpoint.y,zoom:.78,targetZoom:.78};
     saveCheckpoint();
 	// Hentikan sistem musik lama jika masih aktif.
@@ -603,7 +616,7 @@
     const arena=state.maze.bossArena;
     const entry={x:arena.x+110,y:arena.y+arena.h/2};
     state.players[0].x=entry.x;state.players[0].y=entry.y-60;
-    state.players[1].x=entry.x;state.players[1].y=entry.y+60;
+    state.players[1].x=entry.x;state.players[1].y=entry.y+60;resetBot();
     state.obstacles.push({...state.maze.gateSeal});
     state.camera.x=arena.x+arena.w/2;state.camera.y=arena.y+arena.h/2;
     state.spawnQueue=[{delay:2.7,type:'boss',point:{x:arena.x+arena.w*.62,y:arena.y+arena.h/2},distFactor:1}];
@@ -726,7 +739,7 @@
       const ready=state.spawnQueue.filter(s=>s.delay<=0);ready.forEach(s=>spawnEnemy(s.type,s.point,s.distFactor));state.spawnQueue=state.spawnQueue.filter(s=>s.delay>0);
       if(state.phase==='warning'&&state.phaseTimer<=0){state.phase='combat';if(state.enemies.some(e=>e.boss))window.DungeonMusic.playBoss(state.level);}
     }
-    readKeyboardInput();updatePlayers(dt);updateDelayedShots(dt);updateEnemies(dt);updateProjectiles(dt);updatePickups(dt);updateHazards(dt);updateEffects(dt);resolveSeparation();enforceTether();updateCamera(dt);
+    readKeyboardInput();if(soloMode)updateBot(dt);updatePlayers(dt);updateDelayedShots(dt);updateEnemies(dt);updateProjectiles(dt);updatePickups(dt);updateHazards(dt);updateEffects(dt);resolveSeparation();enforceTether();updateCamera(dt);
     updateDelayedTasks(dt);
     if(state.phase==='explore'){updateExploration();checkGateCrossing(dt);updateRandomAmbush(dt);}
     updateHud();
@@ -736,6 +749,7 @@
     const vectors=[{x:0,y:0},{x:0,y:0}];
     if(input.keys.has('KeyA'))vectors[0].x--;if(input.keys.has('KeyD'))vectors[0].x++;if(input.keys.has('KeyW'))vectors[0].y--;if(input.keys.has('KeyS'))vectors[0].y++;
     if(input.keys.has('ArrowLeft'))vectors[1].x--;if(input.keys.has('ArrowRight'))vectors[1].x++;if(input.keys.has('ArrowUp'))vectors[1].y--;if(input.keys.has('ArrowDown'))vectors[1].y++;
+    if(soloMode){if(!vectors[0].x&&!vectors[0].y)vectors[0]=vectors[1];vectors.length=1;}
     vectors.forEach((v,i)=>{if(!input.sticks[i].active&&(v.x||v.y))input.sticks[i].vector=norm(v);else if(!input.sticks[i].active)input.sticks[i].vector={x:0,y:0};});
   }
 
@@ -846,8 +860,73 @@
     const partner=state.players.find(p=>p!==downed);if(!partner||partner.downed)return;
     if(dist(downed,partner)<90){
       downed.reviveProgress+=dt;state.effects.push({type:'revive',x:downed.x,y:downed.y,t:.1,max:.1,color:partner.color});
-      if(downed.reviveProgress>=2.8){downed.downed=false;downed.hp=downed.maxHp*.4;downed.shield=downed.maxShield*.35;downed.invuln=2;downed.reviveProgress=0;window.GameAudio.play('playerRevive',.4);showToast(`Player ${downed.id} bangkit!`);}
+      if(downed.reviveProgress>=2.8){downed.downed=false;downed.hp=downed.maxHp*.4;downed.shield=downed.maxShield*.35;downed.invuln=2;downed.reviveProgress=0;window.GameAudio.play('playerRevive',.4);if(isBot(partner))bot.stats.revives++;showToast(`${longName(downed)} bangkit!`);}
     }else downed.reviveProgress=Math.max(0,downed.reviveProgress-dt*.45);
+  }
+
+  // --- Bot pendukung (mode solo) ----------------------------------------------
+  const BOT_STOP=90, BOT_RESUME=140, BOT_REVIVE_STOP=48, BOT_TRAIL_STEP=60, BOT_TRAIL_MAX=80;
+  function resetBot(){
+    bot.trail.length=0;bot.stuckTimer=0;bot.farTimer=0;bot.progressTimer=0;bot.lastPos=null;bot.stopped=false;bot.tapCooldown=0;
+    const s=input.sticks[1];if(soloMode){s.active=false;s.pointerId=null;s.vector={x:0,y:0};}
+  }
+  // Jalur lurus yang cukup lebar untuk tubuh bot (dinding & jurang menghalangi).
+  function botClearPath(a,b,r){
+    const steps=Math.ceil(dist(a,b)/12);
+    for(let i=1;i<=steps;i++){const t=i/steps,x=lerp(a.x,b.x,t),y=lerp(a.y,b.y,t);if(pointInObstacle(x,y,r)||pointInPit(x,y,r))return false;}
+    return true;
+  }
+  function recordLeadTrail(lead){
+    const last=bot.trail[bot.trail.length-1];
+    if(!last||dist(last,lead)>=BOT_TRAIL_STEP){bot.trail.push({x:lead.x,y:lead.y});if(bot.trail.length>BOT_TRAIL_MAX)bot.trail.shift();}
+  }
+  function botWaypoint(me,lead){
+    const r=me.r*.85;
+    if(botClearPath(me,lead,r))return lead;
+    // Jejak P1 pasti bisa dilalui: ambil titik jejak terbaru yang terlihat dari bot.
+    for(let i=bot.trail.length-1;i>=0;i--)if(botClearPath(me,bot.trail[i],r))return bot.trail[i];
+    // Cadangan: arah jalur sel labirin (sama seperti musuh mengejar pemain).
+    const dir=pathDirectionTowards(me,lead);return{x:me.x+dir.x*120,y:me.y+dir.y*120};
+  }
+  function teleportBotNearLead(me,lead){
+    const back=norm({x:-lead.facing.x,y:-lead.facing.y});
+    const pos=findValidPosition(lead.x+back.x*70,lead.y+back.y*70,me.r,[lead,...state.enemies.filter(e=>!e.dead)]);
+    state.effects.push({type:'burst',x:me.x,y:me.y,t:.4,max:.4,color:me.color});
+    me.x=pos.x;me.y=pos.y;resolveObstacleCollision(me);resolvePitCollision(me);
+    state.effects.push({type:'healBurst',x:me.x,y:me.y,t:.5,max:.5,color:me.color});
+    me.invuln=Math.max(me.invuln,.8);bot.stats.teleports++;bot.stuckTimer=0;bot.farTimer=0;bot.progressTimer=0;bot.lastPos={x:me.x,y:me.y};
+  }
+  function updateBot(dt){
+    const s=input.sticks[1],me=state.players[1],lead=state.players[0];
+    s.vector={x:0,y:0};
+    if(!me||!lead||me.downed)return;
+    recordLeadTrail(lead);
+    bot.tapCooldown=Math.max(0,bot.tapCooldown-dt);
+    const d=dist(me,lead),stopAt=lead.downed?BOT_REVIVE_STOP:BOT_STOP,resumeAt=lead.downed?BOT_REVIVE_STOP+10:BOT_RESUME;
+    if(bot.stopped&&d>resumeAt)bot.stopped=false;
+    if(!bot.stopped&&d<=stopAt)bot.stopped=true;
+    // Musuh menghalangi di dekat bot: berhenti dan lawan dulu (bergerak = tidak menyerang).
+    // Saat P1 down, bot tetap menerobos karena revive lebih penting.
+    const blocker=!lead.downed&&state.enemies.some(e=>!e.dead&&e.state!=='entering'&&dist(me,e)<140+e.r&&hasLineOfSight(me,e));
+    // Tersangkut / tertinggal terlalu lama -> pindah ke dekat P1.
+    bot.farTimer=d>(lead.downed?400:700)?bot.farTimer+dt:0;
+    if(!bot.stopped&&!blocker&&me.attackState!=='active'){
+      bot.progressTimer+=dt;
+      if(bot.progressTimer>=.6){
+        const moved=bot.lastPos?dist(me,bot.lastPos):999;
+        bot.stuckTimer=moved<25?bot.stuckTimer+bot.progressTimer:Math.max(0,bot.stuckTimer-bot.progressTimer);
+        bot.lastPos={x:me.x,y:me.y};bot.progressTimer=0;
+      }
+    }else{bot.stuckTimer=0;bot.progressTimer=0;bot.lastPos=null;}
+    if(bot.stuckTimer>=(lead.downed?1.2:2.4)||bot.farTimer>=(lead.downed?1.5:4)){teleportBotNearLead(me,lead);return;}
+    if(!bot.stopped&&!blocker){
+      const wp=botWaypoint(me,lead);s.vector=norm({x:wp.x-me.x,y:wp.y-me.y});return;
+    }
+    // Diam dekat P1 = ikut menyerang. Pemain hanya menyerang musuh di cone depan,
+    // jadi bot "menyentil" joystick satu frame untuk menghadap musuh terdekat.
+    if(lead.downed||me.attackState!=='idle'||bot.tapCooldown>0)return;
+    const foe=state.enemies.filter(e=>!e.dead&&e.state!=='entering'&&dist(me,e)<=me.rangedRange&&hasLineOfSight(me,e)).sort((a,b)=>dist(me,a)-dist(me,b))[0];
+    if(foe&&angleToFacing(me,foe)>me.rangedAngle*me.detectorScale*.35){s.vector=norm({x:foe.x-me.x,y:foe.y-me.y});bot.tapCooldown=.3;}
   }
 
   function findPlayerTarget(p){
@@ -1169,7 +1248,7 @@
       });
       for(const p of state.players){
         if(p.downed||item.t<=0||dist(item,p)>item.r+p.r)continue;
-        if(item.type==='heal'&&p.hp<p.maxHp){p.hp=Math.min(p.maxHp,p.hp+30);item.t=0;window.GameAudio.play('pickupHeal',.25);showToast(`P${p.id} memperoleh heal`);}
+        if(item.type==='heal'&&p.hp<p.maxHp){p.hp=Math.min(p.maxHp,p.hp+30);item.t=0;window.GameAudio.play('pickupHeal',.25);showToast(`${shortName(p)} memperoleh heal`);}
         else if(item.type==='power'){item.t=0;window.GameAudio.play('pickupUpgrade',.28,p.id===1?1.05:.95);openPowerupPickup(state.players.indexOf(p));}
       }
     });
@@ -1180,7 +1259,7 @@
   function openPowerupPickup(playerIndex){
     state.paused=true;state.activePowerupPlayer=playerIndex;state.powerupRerollsLeft=POWERUP_REROLLS;
     window.DungeonMusic?.playUpgrade?.();
-    dom.powerupTitle.textContent=`Player ${playerIndex+1} menemukan Power-Up!`;
+    dom.powerupTitle.textContent=`${longName(state.players[playerIndex])} menemukan Power-Up!`;
     renderPowerupOptions();
     dom.powerup.classList.add('visible');
   }
@@ -1202,6 +1281,19 @@
     });
     dom.powerupReroll.textContent=`Acak Ulang (${state.powerupRerollsLeft} tersisa)`;
     dom.powerupReroll.disabled=state.powerupRerollsLeft<=0;
+    const botTurn=isBot(player);
+    dom.powerupOptions.classList.toggle('bot-choosing',botTurn);dom.powerupReroll.classList.toggle('hidden',botTurn);
+    if(botTurn)botPickCard(dom.powerupOptions,()=>dom.powerup.classList.contains('visible')&&state.activePowerupPlayer===1,()=>bot.stats.powerups++);
+  }
+
+  // Bot memilih satu kartu acak setelah jeda singkat agar pilihannya sempat terlihat.
+  function botPickCard(container,stillValid,onPick){
+    setTimeout(()=>{
+      if(!stillValid())return;
+      const cards=[...container.querySelectorAll('.upgrade-card')].filter(b=>!b.disabled);if(!cards.length)return;
+      const card=cards[Math.floor(Math.random()*cards.length)];card.classList.add('selected');onPick();
+      setTimeout(()=>{if(stillValid())card.click();},450);
+    },900);
   }
 
   function updateEffects(dt){state.effects.forEach(e=>e.t-=dt);state.effects=state.effects.filter(e=>e.t>0);}
@@ -1237,8 +1329,8 @@
     if(source&&!source.dead&&p.retaliation>0&&p.retaliationCooldown<=0){p.retaliationCooldown=Math.max(1.2,2.8-p.retaliation*.5);fireRetaliationBolt(p,source);}
     if(p.frostNova>0&&p.frostNovaCooldown<=0){p.frostNovaCooldown=Math.max(2.6,6-p.frostNova*1.2);triggerFrostNova(p);}
     if(p.hp<=0){
-      if(p.deathProtection>0){p.deathProtection--;p.hp=p.maxHp*.25;p.shield=p.maxShield*.35;p.invuln=2.2;state.shake=.7;state.effects.push({type:'burst',x:p.x,y:p.y,t:.6,max:.6,color:'#ffe36b'});showToast(`P${p.id}: Emergency Sigil aktif!`);return;}
-      p.hp=0;p.downed=true;p.attackState='idle';p.reviveProgress=0;window.GameAudio.play('playerDown',.35);showToast(`Player ${p.id} down — dekati untuk revive`);checkGameOver();
+      if(p.deathProtection>0){p.deathProtection--;p.hp=p.maxHp*.25;p.shield=p.maxShield*.35;p.invuln=2.2;state.shake=.7;state.effects.push({type:'burst',x:p.x,y:p.y,t:.6,max:.6,color:'#ffe36b'});showToast(`${shortName(p)}: Emergency Sigil aktif!`);return;}
+      p.hp=0;p.downed=true;p.attackState='idle';p.reviveProgress=0;window.GameAudio.play('playerDown',.35);showToast(`${longName(p)} down — dekati untuk revive`);checkGameOver();
     }
   }
 
@@ -1283,7 +1375,7 @@
     dom.upgradeEyebrow.textContent='LEVEL CLEAR';
     dom.upgradeTitle.textContent='Pilih Upgrade';
     dom.upgradeDescription.textContent='Kembangkan build masing-masing pemain sebelum memasuki level berikutnya.';
-    dom.upgrade.classList.add('visible');dom.upgradeStatus.textContent='Menunggu pilihan P1 dan P2...';renderUpgradeOptions(0,dom.p1Upgrades);renderUpgradeOptions(1,dom.p2Upgrades);
+    dom.upgrade.classList.add('visible');dom.upgradeStatus.textContent=`Menunggu pilihan P1 dan ${shortName(state.players[1])}...`;renderUpgradeOptions(0,dom.p1Upgrades);renderUpgradeOptions(1,dom.p2Upgrades);
   }
 
   function renderUpgradeOptions(playerIndex,container){
@@ -1294,7 +1386,7 @@
       button.addEventListener('click',()=>{
         if(state.upgradeSelections[playerIndex])return;up.apply(player);player.upgrades.push(up.name);state.upgradeSelections[playerIndex]=true;
         [...container.children].forEach(b=>b.disabled=true);button.classList.add('selected');window.GameAudio.play('pickupUpgrade',.3,playerIndex?1.12:1);
-        dom.upgradeStatus.textContent=state.upgradeSelections.every(Boolean)?'Pilihan lengkap. Memasuki level berikutnya...':`P${playerIndex+1} selesai. Menunggu partner...`;
+        dom.upgradeStatus.textContent=state.upgradeSelections.every(Boolean)?'Pilihan lengkap. Memasuki level berikutnya...':`${shortName(state.players[playerIndex])} selesai. Menunggu partner...`;
         if(state.upgradeSelections.every(Boolean))setTimeout(()=>{
 		  window.DungeonMusic?.stopUpgradeAndResume?.();
           dom.upgrade.classList.remove('visible');
@@ -1302,6 +1394,8 @@
         },760);
       });container.appendChild(button);
     });
+    container.classList.toggle('bot-choosing',isBot(player));
+    if(isBot(player))botPickCard(container,()=>dom.upgrade.classList.contains('visible')&&!state.upgradeSelections[playerIndex],()=>bot.stats.upgrades++);
   }
 
   function sampleUpgrades(player,count){
@@ -1362,7 +1456,7 @@
       ctx.beginPath();ctx.moveTo(17,0);ctx.lineTo(-9,-11);ctx.lineTo(-9,11);ctx.closePath();ctx.fill();
       ctx.restore();
       ctx.save();ctx.globalAlpha=pulse;ctx.fillStyle='#fff';ctx.font='800 11px system-ui';ctx.textAlign='center';
-      ctx.fillText(`P${p.id} BUTUH BANTUAN`,cx,cy+(Math.abs(angle)<Math.PI/2?-22:26));
+      ctx.fillText(`${shortName(p)} BUTUH BANTUAN`,cx,cy+(Math.abs(angle)<Math.PI/2?-22:26));
       ctx.restore();
     });
   }
@@ -1502,7 +1596,7 @@
         ctx.fillStyle='#ffcf4d';ctx.font='900 20px system-ui';ctx.textAlign='center';ctx.fillText('!',0,0);
         ctx.restore();
       }
-      ctx.fillStyle='#08101d';ctx.font='800 13px system-ui';ctx.textAlign='center';ctx.fillText(`P${p.id}`,0,5);ctx.restore();
+      ctx.fillStyle='#08101d';ctx.font='800 13px system-ui';ctx.textAlign='center';ctx.fillText(shortName(p),0,5);ctx.restore();
     });
   }
 
@@ -1637,7 +1731,7 @@
     });
   }
 
-  function drawJoysticks(){input.sticks.forEach((s,i)=>{const color=i?COLORS.p2:COLORS.p1;ctx.save();ctx.globalAlpha=s.active?.55:.16;ctx.fillStyle='rgba(5,8,18,.8)';ctx.strokeStyle=color;ctx.lineWidth=3;ctx.beginPath();ctx.arc(s.origin.x,s.origin.y,s.radius,0,TAU);ctx.fill();ctx.stroke();ctx.globalAlpha=s.active?.82:.22;ctx.fillStyle=color;ctx.beginPath();ctx.arc(s.knob.x,s.knob.y,27,0,TAU);ctx.fill();ctx.restore();});}
+  function drawJoysticks(){input.sticks.forEach((s,i)=>{if(soloMode&&i)return;const color=i?COLORS.p2:COLORS.p1;ctx.save();ctx.globalAlpha=s.active?.55:.16;ctx.fillStyle='rgba(5,8,18,.8)';ctx.strokeStyle=color;ctx.lineWidth=3;ctx.beginPath();ctx.arc(s.origin.x,s.origin.y,s.radius,0,TAU);ctx.fill();ctx.stroke();ctx.globalAlpha=s.active?.82:.22;ctx.fillStyle=color;ctx.beginPath();ctx.arc(s.knob.x,s.knob.y,27,0,TAU);ctx.fill();ctx.restore();});}
 
 	function drawBossBar() {
 	  const boss = state.enemies.find(
@@ -1831,7 +1925,7 @@
   function distancePointToSegment(p,a,b){const l2=(b.x-a.x)**2+(b.y-a.y)**2;if(!l2)return dist(p,a);let t=((p.x-a.x)*(b.x-a.x)+(p.y-a.y)*(b.y-a.y))/l2;t=clamp(t,0,1);return Math.hypot(p.x-(a.x+t*(b.x-a.x)),p.y-(a.y+t*(b.y-a.y)));}
 
   function canvasPoint(event){const rect=canvas.getBoundingClientRect();return{x:(event.clientX-rect.left)*W/rect.width,y:(event.clientY-rect.top)*H/rect.height};}
-  function pointerDown(e){if(!state.running||state.paused)return;const p=canvasPoint(e),index=p.x<W/2?0:1,s=input.sticks[index];if(s.active)return;s.active=true;s.pointerId=e.pointerId;s.origin={...p};s.knob={...p};s.vector={x:0,y:0};input.pointers.set(e.pointerId,index);canvas.setPointerCapture(e.pointerId);e.preventDefault();}
+  function pointerDown(e){if(!state.running||state.paused)return;const p=canvasPoint(e),index=(soloMode||p.x<W/2)?0:1,s=input.sticks[index];if(s.active)return;s.active=true;s.pointerId=e.pointerId;s.origin={...p};s.knob={...p};s.vector={x:0,y:0};input.pointers.set(e.pointerId,index);canvas.setPointerCapture(e.pointerId);e.preventDefault();}
   function pointerMove(e){const index=input.pointers.get(e.pointerId);if(index===undefined)return;const s=input.sticks[index],p=canvasPoint(e),dx=p.x-s.origin.x,dy=p.y-s.origin.y,d=Math.hypot(dx,dy),m=Math.min(s.radius,d),n=d?{x:dx/d,y:dy/d}:{x:0,y:0};s.knob={x:s.origin.x+n.x*m,y:s.origin.y+n.y*m};s.vector=d<10?{x:0,y:0}:n;e.preventDefault();}
   function pointerUp(e){const index=input.pointers.get(e.pointerId);if(index===undefined)return;const s=input.sticks[index];s.active=false;s.pointerId=null;s.vector={x:0,y:0};s.knob={...s.origin};input.pointers.delete(e.pointerId);e.preventDefault();}
 
@@ -1854,7 +1948,15 @@
     dom.soundToggle.setAttribute('aria-pressed',String(!enabled));
   }
 
-  function saveCheckpoint(){try{localStorage.setItem('dungeonDuoCheckpoint',JSON.stringify({version:4,level:state.level,score:state.score,difficulty:state.difficulty,seed:state.seed,players:snapshotPlayers()}));dom.continueButton.classList.remove('hidden');}catch(_){} }
+  function applyModeUi(){
+    dom.modeButton.textContent=soloMode?'Mode: Solo + Bot ⇄':'Mode: 2 Pemain ⇄';dom.modeButton.setAttribute('aria-pressed',String(soloMode));
+    dom.helpP1.textContent=soloMode?'Sentuh di mana saja / WASD / Arrow':'Joystick kiri / WASD';
+    dom.helpP2Title.textContent=soloMode?'Bot':'Player 2';dom.helpP2.textContent=soloMode?'Menempel, ikut menyerang & membangkitkanmu':'Joystick kanan / Arrow Keys';
+    dom.p2Label.textContent=soloMode?'BOT':'P2';dom.p2UpgradeTitle.textContent=soloMode?'Bot':'Player 2';
+    const s=input.sticks[0];if(!s.active){const x=soloMode?W*.5:W*.17;s.origin={x,y:H*.85};s.knob={...s.origin};}
+  }
+  function toggleSoloMode(){soloMode=!soloMode;saveSoloPreference();applyModeUi();window.GameAudio.play('uiClick',.2);}
+  function saveCheckpoint(){try{localStorage.setItem('dungeonDuoCheckpoint',JSON.stringify({version:4,solo:soloMode,level:state.level,score:state.score,difficulty:state.difficulty,seed:state.seed,players:snapshotPlayers()}));dom.continueButton.classList.remove('hidden');}catch(_){} }
   function loadCheckpoint(){try{return JSON.parse(localStorage.getItem('dungeonDuoCheckpoint'));}catch(_){return null;}}
   function clearCheckpoint(){try{localStorage.removeItem('dungeonDuoCheckpoint');}catch(_){} }
 
@@ -1880,11 +1982,11 @@
   canvas.addEventListener('pointerdown',pointerDown);canvas.addEventListener('pointermove',pointerMove);canvas.addEventListener('pointerup',pointerUp);canvas.addEventListener('pointercancel',pointerUp);
   window.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();if(e.code==='KeyF'){e.preventDefault();toggleFullscreen();}input.keys.add(e.code);});
   window.addEventListener('keyup',e=>input.keys.delete(e.code));
-  dom.startButton.addEventListener('click',()=>{clearCheckpoint();beginRun(false);});dom.continueButton.addEventListener('click',()=>beginRun(true));dom.restartRun.addEventListener('click',()=>{clearCheckpoint();beginRun(false);});dom.restartLevel.addEventListener('click',restartLevelAssist);dom.sound.addEventListener('change',()=>{window.GameAudio.setEnabled(dom.sound.checked);window.DungeonMusic?.setVolume?.(dom.sound.checked?.18:0);updateSoundButton();});dom.soundToggle.addEventListener('click',toggleSound);dom.fullscreenButton.addEventListener('click',toggleFullscreen);
+  dom.startButton.addEventListener('click',()=>{clearCheckpoint();beginRun(false);});dom.continueButton.addEventListener('click',()=>beginRun(true));dom.restartRun.addEventListener('click',()=>{clearCheckpoint();beginRun(false);});dom.restartLevel.addEventListener('click',restartLevelAssist);dom.sound.addEventListener('change',()=>{window.GameAudio.setEnabled(dom.sound.checked);window.DungeonMusic?.setVolume?.(dom.sound.checked?.18:0);updateSoundButton();});dom.soundToggle.addEventListener('click',toggleSound);dom.modeButton.addEventListener('click',toggleSoloMode);dom.fullscreenButton.addEventListener('click',toggleFullscreen);
   dom.victoryContinue.addEventListener('click',()=>{dom.victory.classList.remove('visible');openUpgradeScreen();});
   dom.powerupReroll.addEventListener('click',()=>{
     if(state.powerupRerollsLeft<=0)return;
     state.powerupRerollsLeft--;window.GameAudio.play('uiClick',.2);renderPowerupOptions();
   });
-  document.addEventListener('fullscreenchange',updateFullscreenButton);document.addEventListener('webkitfullscreenchange',updateFullscreenButton);updateFullscreenButton();updateSoundButton();if(loadCheckpoint())dom.continueButton.classList.remove('hidden');requestAnimationFrame(loop);
+  document.addEventListener('fullscreenchange',updateFullscreenButton);document.addEventListener('webkitfullscreenchange',updateFullscreenButton);updateFullscreenButton();updateSoundButton();applyModeUi();if(loadCheckpoint())dom.continueButton.classList.remove('hidden');requestAnimationFrame(loop);
 })();

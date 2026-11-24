@@ -46,6 +46,10 @@ p { color:var(--muted); line-height:1.55; }
 .instructions div { padding:15px; border:1px solid var(--line); border-radius:17px; background:rgba(255,255,255,.045); display:grid; gap:4px; }
 .instructions b { color:white; }
 .instructions span { font-size:13px; color:var(--muted); }
+.mode-row { display:flex; justify-content:center; margin:-6px 0 14px; }
+.mode-button { min-width:240px; letter-spacing:.04em; }
+.mode-button[aria-pressed="true"] { border-color:rgba(255,123,202,.6); color:#ffd3ee; background:rgba(255,123,202,.12); }
+.bot-choosing { pointer-events:none; }
 .button-row { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
 button { border:0; padding:13px 20px; border-radius:14px; color:white; background:linear-gradient(135deg, #7164ff, #a774ff); font-weight:850; cursor:pointer; box-shadow:0 10px 30px rgba(118,104,255,.27); transition:transform .15s, filter .15s, border-color .15s; }
 button:hover { filter:brightness(1.08); transform:translateY(-1px); }
