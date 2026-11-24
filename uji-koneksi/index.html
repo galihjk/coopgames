@@ -105,6 +105,10 @@ const net = CoopNet.host({
     net.kirim(id, { t: 'i', nomor: p.nomor, warna: p.warna, rtt: null });
     $('status').textContent = `P${p.nomor} masuk.`;
   },
+  onMencoba(id, ice) {
+    const arti = { new: 'baru mulai', checking: 'mencoba jalur langsung…', failed: 'jalur langsung GAGAL (biasanya karena hotspot/data seluler)', disconnected: 'terputus', closed: 'ditutup' };
+    $('status').textContent = `Ada HP mencoba masuk: ${arti[ice] || ice}`;
+  },
   onKeluar(id) { const p = pemain.get(id); if (p) { p.tersambung = false; $('status').textContent = `P${p.nomor} terputus.`; } },
   onPing(id, ms) {
     const p = pemain.get(id); if (!p) return;

@@ -11,13 +11,20 @@
 //    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 //
 //  Pemakaian:
-//    const h = CoopNet.host({ onSiap(kode){}, onMasuk(id,meta){}, onKeluar(id){},
+//    const h = CoopNet.host({ onSiap(kode){}, onMencoba(id,iceState){}, onMasuk(id,meta){}, onKeluar(id){},
 //                             onData(id,pesan){}, onPing(id,ms){}, onGalat(err){} });
 //    h.kirim(id, pesan); h.kirimSemua(pesan);
-//    const p = CoopNet.pad(kode, { onStatus(status,info){}, onData(pesan){} });
+//    const p = CoopNet.pad(kode, { onStatus(status,info,diag){}, onData(pesan){} });
 //    p.kirim(pesan);
+//  status HP: menyambung | tersambung | terputus | gagal-jalur | tidak-ada | galat
+//  diag     : {perantara, layar, ice, kandidat, gagal}: langkah mana yang sudah/belum berhasil.
 //
 //  Ping diurus di sini: layar mengirim {t:'p'} tiap 0,5 dtk, HP memantulkannya sebagai {t:'q'}.
+//
+//  Keterbatasan (diuji 24-11-2026): server relay (TURN) gratis tanpa registrasi sudah tidak ada.
+//  Relay bawaan PeerJS (eu-0/us-0.turn.peerjs.com) dan Open Relay tidak bisa di-resolve lagi.
+//  Jadi sambungan hanya berhasil kalau jalur langsung berhasil, biasanya di WiFi router yang sama.
+//  Lewat hotspot HP atau data seluler, jalur langsung sering gagal.
 // =====================================================================
 const CoopNet = (() => {
   const AWALAN = 'coopgames-pad-';
@@ -46,6 +53,11 @@ const CoopNet = (() => {
       peer = new Peer(idPeer(kode), { debug: 1 });
       peer.on('open', () => cb.onSiap && cb.onSiap(kode));
       peer.on('connection', conn => {
+        // diagnosis: HP sudah mengetuk lewat perantara, jalur langsung sedang dibangun
+        const pc = conn.peerConnection, idCoba = (conn.metadata && conn.metadata.id) || conn.peer;
+        const lapor = () => { if (!conn.open && cb.onMencoba) cb.onMencoba(idCoba, pc ? pc.iceConnectionState : '?'); };
+        if (pc) pc.addEventListener('iceconnectionstatechange', lapor);
+        lapor();
         conn.on('open', () => {
           const id = (conn.metadata && conn.metadata.id) || conn.peer;
           const lama = sambungan.get(id);
@@ -89,7 +101,7 @@ const CoopNet = (() => {
   function pad(kode, cb = {}) {
     const id = idPerangkat();
     let peer = null, conn = null, timer = null, berhenti = false;
-    const status = (s, info) => cb.onStatus && cb.onStatus(s, info);
+    const status = (s, info, diag) => cb.onStatus && cb.onStatus(s, info, diag);
     const jadwal = ms => { clearTimeout(timer); timer = setTimeout(sambung, ms); };
 
     function bukaPeer() {
@@ -103,16 +115,39 @@ const CoopNet = (() => {
       });
     }
 
+    let gagal = 0;
     function sambung() {
       if (berhenti || (conn && conn.open)) return;
       if (!peer || peer.destroyed) { bukaPeer(); return; }
       if (peer.disconnected) { try { peer.reconnect(); } catch (e) { /* abaikan */ } jadwal(2000); return; }
-      status('menyambung');
       // reliable:false = kanal tanpa urutan; paket telat tidak menahan paket sesudahnya
       const c = peer.connect(idPeer(kode), { reliable: false, serialization: 'json', metadata: { id } });
       conn = c;
-      const batas = setTimeout(() => { if (!c.open) { try { c.close(); } catch (e) { /* abaikan */ } if (conn === c) conn = null; jadwal(1000); } }, 8000);
-      c.on('open', () => { clearTimeout(batas); status('tersambung'); });
+      // diagnosis bertahap: perantara → layar ditemukan → jalur langsung (ICE)
+      const pc = c.peerConnection, jenis = new Set();
+      const diag = () => ({
+        perantara: true,
+        layar: !!(pc && pc.remoteDescription),
+        ice: pc ? pc.iceConnectionState : '?',
+        kandidat: [...jenis].join(', ') || '-',
+        gagal,
+      });
+      const lapor = () => { if (conn === c && !c.open) status('menyambung', '', diag()); };
+      if (pc) {
+        pc.addEventListener('icecandidate', e => { if (e.candidate && e.candidate.type) { jenis.add(e.candidate.type); lapor(); } });
+        pc.addEventListener('iceconnectionstatechange', lapor);
+        pc.addEventListener('signalingstatechange', lapor);
+      }
+      lapor();
+      const batas = setTimeout(() => {
+        if (c.open) return;
+        gagal++;
+        status('gagal-jalur', '', diag()); // ditampilkan sampai percobaan berikutnya memberi kabar baru
+        try { c.close(); } catch (e) { /* abaikan */ }
+        if (conn === c) conn = null;
+        jadwal(2500);
+      }, 12000);
+      c.on('open', () => { clearTimeout(batas); gagal = 0; status('tersambung'); });
       c.on('data', d => {
         if (d && d.t === 'p') { c.send({ t: 'q', n: d.n, ts: d.ts }); return; }
         cb.onData && cb.onData(d);
@@ -126,7 +161,7 @@ const CoopNet = (() => {
     }
 
     bukaPeer();
-    status('menyambung');
+    status('menyambung', '', { perantara: false });
     document.addEventListener('visibilitychange', () => { if (!document.hidden && !(conn && conn.open)) jadwal(100); });
 
     return {

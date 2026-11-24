@@ -154,7 +154,11 @@ document.getElementById('tombolGabung').addEventListener('click', async () => {
   elGabung.style.display = 'none'; st.aktif = true;
   if (net) net.berhenti();
   net = CoopNet.pad(kode, {
-    onStatus(s, info) { st.status = s; st.pesanStatus = info || ''; if (s === 'tersambung') getar([20, 40, 20]); },
+    onStatus(s, info, diag) {
+      st.status = s; st.pesanStatus = info || '';
+      if (diag) st.diag = diag;
+      if (s === 'tersambung') getar([20, 40, 20]);
+    },
     onData(d) {
       if (d.t === 'i') st.info = d;
       else if (d.t === 'v') getar(d.pola || 40);
@@ -168,20 +172,44 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && st
 function teks(s, x, y, ukuran, warna, rata = 'center', tebal = 700) {
   ctx.font = `${tebal} ${ukuran}px system-ui,sans-serif`; ctx.fillStyle = warna; ctx.textAlign = rata; ctx.textBaseline = 'middle'; ctx.fillText(s, x, y);
 }
+// Panel diagnosis selama belum tersambung: menunjukkan langkah mana yang macet.
+const ICE_ID = { new: 'belum mulai', checking: 'mencoba…', connected: 'tersambung', completed: 'tersambung', failed: 'GAGAL', disconnected: 'terputus', closed: 'ditutup' };
+function gambarDiag(cx, y0) {
+  if (st.status === 'tersambung') return;
+  const d = st.diag || {}, ok = '#7ee0a8', tunggu = '#ffc46b', buruk = '#ff6b6b';
+  const baris = [];
+  if (st.status === 'tidak-ada') baris.push([st.pesanStatus, buruk]);
+  else if (st.status === 'galat') baris.push(['Galat: ' + st.pesanStatus, buruk]);
+  baris.push([`1. Server perantara: ${d.perantara ? '✓' : 'menghubungi…'}`, d.perantara ? ok : tunggu]);
+  if (d.perantara) baris.push([`2. Layar komputer ditemukan: ${d.layar ? '✓' : 'menunggu jawaban…'}`, d.layar ? ok : tunggu]);
+  if (d.layar) baris.push([`3. Jalur langsung HP ↔ layar: ${ICE_ID[d.ice] || d.ice}`, d.ice === 'failed' ? buruk : tunggu]);
+  if (d.perantara) baris.push([`alamat HP yang ditemukan: ${d.kandidat || '-'}`, '#9aa3c7']);
+  if (d.gagal) {
+    baris.push([`Jalur langsung gagal ${d.gagal}×, masih terus dicoba.`, buruk]);
+    baris.push(['Penyebab umum: hotspot HP atau data seluler.', '#e8ebf7']);
+    baris.push(['Coba sambungkan HP dan komputer ke WiFi router yang sama.', '#e8ebf7']);
+  }
+  const tinggi = baris.length * 22 + 20, lebar = Math.min(W - 24, 520);
+  ctx.fillStyle = 'rgba(11,16,32,.92)'; ctx.strokeStyle = '#2a3358'; ctx.lineWidth = 1;
+  ctx.fillRect(cx - lebar / 2, y0, lebar, tinggi); ctx.strokeRect(cx - lebar / 2, y0, lebar, tinggi);
+  baris.forEach(([s, w], i) => teks(s, cx, y0 + 21 + i * 22, 14, w, 'center', 600));
+}
 function gambar() {
   ctx.fillStyle = '#0b1020'; ctx.fillRect(0, 0, W, H);
   if (!st.aktif) return;
   if (!mendatar()) {
-    teks('⟳', W / 2, H / 2 - 40, 64, '#6c8dff');
-    teks('Putar HP mendatar', W / 2, H / 2 + 20, 22, '#e8ebf7');
-    teks('Kunci rotasi mati? Ketuk ⛶ di pojok setelah memutar.', W / 2, H / 2 + 54, 13, '#9aa3c7', 'center', 400);
+    teks('⟳', W / 2, H * .18, 64, '#6c8dff');
+    teks('Putar HP mendatar', W / 2, H * .18 + 60, 22, '#e8ebf7');
+    teks('Kunci rotasi mati? Ketuk ⛶ di pojok setelah memutar.', W / 2, H * .18 + 92, 13, '#9aa3c7', 'center', 400);
+    gambarDiag(W / 2, H * .18 + 120);
     return;
   }
   const warnaPemain = st.info ? st.info.warna : '#6c8dff';
   // bilah atas: nomor pemain, status, ping
   const ket = st.status === 'tersambung'
     ? `P${st.info ? st.info.nomor : '?'}  ·  ping ${st.info && st.info.rtt != null ? Math.round(st.info.rtt) + ' ms' : '…'}`
-    : st.status === 'menyambung' ? 'Menyambung…' : st.status === 'terputus' ? 'Terputus — menyambung ulang…' : (st.pesanStatus || st.status);
+    : st.status === 'menyambung' ? 'Menyambung…' : st.status === 'terputus' ? 'Terputus — menyambung ulang…'
+    : st.status === 'gagal-jalur' ? 'Jalur langsung gagal — mencoba lagi…' : st.status === 'tidak-ada' ? 'Ruang tidak ditemukan' : 'Galat koneksi';
   ctx.fillStyle = st.status === 'tersambung' ? warnaPemain : '#ffc46b';
   ctx.globalAlpha = .18; ctx.fillRect(0, 0, W, 34); ctx.globalAlpha = 1;
   teks(ket, W / 2, 17, 15, st.status === 'tersambung' ? warnaPemain : '#ffc46b');
@@ -218,6 +246,7 @@ function gambar() {
     }
   });
   teks('ketuk = aksi  ·  tahan + geser = bidik, lepas = aksi', W - .42 * U, 50, 11, '#9aa3c7', 'center', 400);
+  gambarDiag(W / 2, 46);
 }
 cv.addEventListener('click', e => { // tombol ⛶ di pojok kanan atas
   if (st.aktif && e.clientX > W - 44 && e.clientY < 34) {
