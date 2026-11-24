@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0b1020" />
-  <title>Koleksi Game — Browser Games</title>
+  <title>Coop Games — Main Bareng, Menang Bareng</title>
   <style>
     :root {
       color-scheme: dark;
@@ -14,6 +14,10 @@
       --accent: #6c8dff;
       --text: #e8ebf7;
       --muted: #9aa3c7;
+      --chip: #1d2542;
+      --pemain: #7ee0a8;
+      --cara: #ffc46b;
+      --info: #b9c2e6;
     }
 
     * { box-sizing: border-box; }
@@ -24,14 +28,12 @@
       background: radial-gradient(1200px 800px at 50% -10%, #1b2444 0%, var(--bg) 60%);
       color: var(--text);
       font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-      padding: 48px 20px 80px;
+      padding: 40px 16px 80px;
     }
 
-    header {
-      max-width: 960px;
-      margin: 0 auto 40px;
-      text-align: center;
-    }
+    header, .filters, .legend, .grid { max-width: 960px; margin-left: auto; margin-right: auto; }
+
+    header { margin-bottom: 28px; text-align: center; }
 
     header .eyebrow {
       letter-spacing: 0.2em;
@@ -41,24 +43,49 @@
       margin-bottom: 12px;
     }
 
-    header h1 {
-      margin: 0 0 12px;
-      font-size: clamp(1.8rem, 4vw, 2.6rem);
-    }
+    header h1 { margin: 0 0 12px; font-size: clamp(1.8rem, 6vw, 2.6rem); }
 
-    header p {
+    header p { color: var(--muted); max-width: 600px; margin: 0 auto; line-height: 1.5; }
+
+    /* ---------- filter ---------- */
+    .filters { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    .filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .filter-row[hidden] { display: none; }
+    .filter-row .label { font-size: 0.75rem; color: var(--muted); min-width: 72px; }
+    .filter-row button {
+      font: inherit;
+      font-size: 0.8rem;
+      color: var(--text);
+      background: var(--chip);
+      border: 1px solid var(--panel-border);
+      border-radius: 999px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    .filter-row button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #0b1020; font-weight: 600; }
+
+    /* ---------- keterangan tag ---------- */
+    .legend {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      margin-bottom: 24px;
+      font-size: 0.85rem;
       color: var(--muted);
-      max-width: 560px;
-      margin: 0 auto;
-      line-height: 1.5;
     }
+    .legend summary { cursor: pointer; padding: 12px 16px; color: var(--text); }
+    .legend .isi { padding: 0 16px 14px; line-height: 1.55; }
+    .legend dl { margin: 0 0 10px; display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; }
+    .legend dt { color: var(--cara); }
+    .legend dd { margin: 0; }
+    .legend .belum { opacity: 0.6; }
+    .legend p { margin: 8px 0 0; }
 
+    /* ---------- kartu ---------- */
     .grid {
-      max-width: 960px;
-      margin: 0 auto;
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 24px;
+      gap: 20px;
     }
 
     .card {
@@ -72,55 +99,40 @@
       color: inherit;
       transition: transform 0.15s ease, border-color 0.15s ease;
     }
+    .card[hidden] { display: none; }
 
-    .card:hover, .card:focus-visible {
-      transform: translateY(-4px);
-      border-color: var(--accent);
-    }
+    .card:hover, .card:focus-visible { transform: translateY(-4px); border-color: var(--accent); }
 
     .card-art {
-      height: 140px;
-      background: linear-gradient(135deg, #2a3f8f 0%, #6c2fa3 100%);
+      height: 110px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 2.5rem;
     }
 
-    .card-body {
-      padding: 18px 20px 22px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      flex: 1;
-    }
+    .card-body { padding: 16px 18px 20px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
 
-    .card-body .tag {
-      font-size: 0.7rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--accent);
-    }
+    .card-body .genre { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
 
-    .card-body h2 {
-      margin: 0;
-      font-size: 1.25rem;
-    }
+    .card-body h2 { margin: 0; font-size: 1.25rem; }
 
-    .card-body p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.9rem;
-      line-height: 1.5;
-      flex: 1;
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      font-size: 0.72rem;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--chip);
+      border: 1px solid var(--panel-border);
+      color: var(--info);
+      white-space: nowrap;
     }
+    .chip.pemain { color: var(--pemain); border-color: color-mix(in srgb, var(--pemain) 40%, transparent); }
+    .chip.cara { color: var(--cara); border-color: color-mix(in srgb, var(--cara) 40%, transparent); }
 
-    .card-body .play {
-      margin-top: 8px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--accent);
-    }
+    .card-body p { margin: 0; color: var(--muted); font-size: 0.9rem; line-height: 1.5; flex: 1; }
+
+    .card-body .play { margin-top: 4px; font-size: 0.85rem; font-weight: 600; color: var(--accent); }
 
     .empty-card {
       border: 1px dashed var(--panel-border);
@@ -128,53 +140,153 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 220px;
+      min-height: 160px;
       color: var(--muted);
       font-size: 0.85rem;
       text-align: center;
       padding: 20px;
     }
+    .no-match { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 24px; }
   </style>
 </head>
 <body>
   <header>
-    <div class="eyebrow">Game Collection</div>
-    <h1>Pilih Game</h1>
-    <p>Kumpulan game browser yang bisa langsung dimainkan. Klik salah satu untuk mulai bermain.</p>
+    <div class="eyebrow">Coop Games</div>
+    <h1>Main Bareng, Menang Bareng</h1>
+    <p>Kumpulan game kerja sama di browser: semua pemain satu tim, bukan saling lawan.
+      Setiap kartu menyebut berapa pemainnya dan cara mainnya, misalnya berdua di satu HP.</p>
   </header>
 
-  <main class="grid">
-    <a class="card" href="dungeon-duo-portrait/index.html">
-      <div class="card-art" aria-hidden="true">🗡️</div>
-      <div class="card-body">
-        <span class="tag">Local Co-op · Endless Dungeon</span>
-        <h2>Dungeon Duo</h2>
-        <p>Kerja sama dua pemain melawan gelombang musuh dan boss di dungeon tanpa akhir. Bangun kombinasi melee, elemental, dan shield bersama partner.</p>
-        <span class="play">Mainkan →</span>
-      </div>
-    </a>
+  <!-- Tombol filter dibuat otomatis dari atribut data-* di tiap kartu (lihat skrip di bawah). -->
+  <section class="filters" aria-label="Saring game">
+    <div class="filter-row" data-filter="pemain"><span class="label">Pemain</span></div>
+    <div class="filter-row" data-filter="cara"><span class="label">Cara main</span></div>
+  </section>
 
-    <a class="card" href="bara-kembar/index.html">
-      <div class="card-art" aria-hidden="true">🔥</div>
+  <details class="legend">
+    <summary>Arti tag &amp; tips sebelum main</summary>
+    <div class="isi">
+      <dl>
+        <dt>Satu HP</dt><dd>Semua pemain memakai satu HP yang sama, masing-masing memegang sisi layarnya sendiri.</dd>
+        <dt class="belum">Satu layar</dt><dd class="belum">Satu PC/TV, tiap pemain memakai keyboard atau gamepad. (Belum ada gamenya.)</dd>
+        <dt class="belum">HP masing-masing</dt><dd class="belum">Tiap pemain membuka game di HP-nya sendiri dan tersambung. (Belum ada gamenya.)</dd>
+        <dt class="belum">Bergiliran</dt><dd class="belum">Satu perangkat dioper bergantian antarpemain. (Belum ada gamenya.)</dd>
+      </dl>
+      Tag lain: <b>Berhadapan</b> = pemain duduk di dua ujung HP yang ditaruh di meja;
+      <b>Berdampingan</b> = pemain duduk bersebelahan, layar dibagi kiri–kanan;
+      <b>Solo + bot</b> = bisa dimainkan sendirian ditemani rekan komputer.
+      <p><b>Main berdua di satu HP Android (3 jari atau lebih menempel)?</b> Matikan gestur
+        <i>"usap 3 jari ke bawah"</i> (tangkapan layar) di Pengaturan HP. Gestur itu
+        memutus semua sentuhan begitu jari ketiga menempel, sehingga kontrol tiba-tiba lepas.</p>
+    </div>
+  </details>
+
+  <!--
+    Cara menambah game: salin satu <a class="card">, lalu isi
+      data-pemain : jumlah pemain yang didukung, pisahkan koma (mis. "1,2" atau "2,3,4")
+      data-cara   : cara main, pisahkan koma; pilih dari: satu-hp, satu-layar, hp-masing, bergiliran
+    Teks chip di kartu ditulis manual agar bisa lebih rinci (mis. "Berhadapan").
+  -->
+  <main class="grid" id="grid">
+    <a class="card" href="bara-kembar/index.html" data-pemain="1,2" data-cara="satu-hp">
+      <div class="card-art" style="background: linear-gradient(135deg, #5a1d0f 0%, #b8461c 100%);" aria-hidden="true">🔥</div>
       <div class="card-body">
-        <span class="tag">Local Co-op · Souls-like</span>
+        <span class="genre">Souls-like · 10 level</span>
         <h2>Bara Kembar</h2>
-        <p>Co-op souls-like tampilan atas untuk dua pemain di satu HP yang diletakkan mendatar — duduk berhadapan, nyalakan api unggun, bangkitkan rekan yang gugur, dan kalahkan bos bersama.</p>
+        <div class="chips">
+          <span class="chip pemain">👥 1–2 pemain</span>
+          <span class="chip cara">📱 Satu HP</span>
+          <span class="chip">Berhadapan</span>
+          <span class="chip">Solo + bot</span>
+          <span class="chip">⌨️ Keyboard</span>
+        </div>
+        <p>Petualangan gelap tampilan atas: nyalakan api unggun, bangkitkan rekan yang gugur, dan kalahkan bos di 10 level sampai Kawah Naga. Main berdua berhadapan di satu HP tegak, atau sendirian ditemani bot. Ada mode Santai.</p>
         <span class="play">Mainkan →</span>
       </div>
     </a>
 
-    <a class="card" href="nebula-duo/index.html">
-      <div class="card-art" aria-hidden="true">🚀</div>
+    <a class="card" href="dungeon-duo-portrait/index.html" data-pemain="2" data-cara="satu-hp">
+      <div class="card-art" style="background: linear-gradient(135deg, #2a3f8f 0%, #6c2fa3 100%);" aria-hidden="true">🗡️</div>
       <div class="card-body">
-        <span class="tag">Local Co-op · Vertical Shooter</span>
-        <h2>Nebula Duo</h2>
-        <p>Shooter vertikal tampilan atas tanpa akhir. Dua pesawat, dua joypad, satu layar — pilih upgrade masing-masing dan bertahan di level procedural yang terus berubah.</p>
+        <span class="genre">Dungeon tanpa akhir</span>
+        <h2>Dungeon Duo</h2>
+        <div class="chips">
+          <span class="chip pemain">👥 2 pemain</span>
+          <span class="chip cara">📱 Satu HP</span>
+          <span class="chip">Berdampingan</span>
+          <span class="chip">⌨️ Keyboard</span>
+        </div>
+        <p>Lawan gelombang musuh dan bos di dungeon yang terus memanjang. Gabungkan upgrade melee, elemental, dan perisai bersama partner. Satu joystick per pemain, serangan otomatis saat diam.</p>
         <span class="play">Mainkan →</span>
       </div>
     </a>
 
-    <div class="empty-card">Game berikutnya akan muncul di sini.</div>
+    <a class="card" href="nebula-duo/index.html" data-pemain="1,2" data-cara="satu-hp">
+      <div class="card-art" style="background: linear-gradient(135deg, #0f2a5a 0%, #3b1c7a 100%);" aria-hidden="true">🚀</div>
+      <div class="card-body">
+        <span class="genre">Shooter vertikal</span>
+        <h2>Nebula Duo</h2>
+        <div class="chips">
+          <span class="chip pemain">👥 1–2 pemain</span>
+          <span class="chip cara">📱 Satu HP</span>
+          <span class="chip">Berdampingan</span>
+          <span class="chip">Solo + bot</span>
+        </div>
+        <p>Dua pesawat, dua joystick, satu layar. Pilih upgrade masing-masing dan bertahan selama mungkin di level acak yang terus berubah. Main sendiri? Bot rekan terbang di sampingmu.</p>
+        <span class="play">Mainkan →</span>
+      </div>
+    </a>
+
+    <div class="empty-card" data-tetap>Game co-op berikutnya akan muncul di sini, untuk 2 pemain atau lebih, di satu HP maupun di perangkat masing-masing.</div>
   </main>
+
+  <script>
+    // Label untuk nilai data-cara. Nilai yang belum dipakai game mana pun tidak dibuatkan tombol.
+    const LABEL_CARA = { 'satu-hp': '📱 Satu HP', 'satu-layar': '🖥️ Satu layar', 'hp-masing': '📲 HP masing-masing', 'bergiliran': '🔁 Bergiliran' };
+    const labelPemain = n => n + ' pemain';
+
+    const cards = [...document.querySelectorAll('.card')];
+    const nilai = key => cards.map(c => (c.dataset[key] || '').split(',').filter(Boolean));
+    const pilihan = { pemain: 'semua', cara: 'semua' };
+
+    function buatTombol(key, daftar, label) {
+      const row = document.querySelector(`[data-filter="${key}"]`);
+      for (const v of ['semua', ...daftar]) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = v === 'semua' ? 'Semua' : label(v);
+        b.setAttribute('aria-pressed', String(v === 'semua'));
+        b.addEventListener('click', () => {
+          pilihan[key] = v;
+          row.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+          terapkan();
+        });
+        row.appendChild(b);
+      }
+    }
+
+    const semuaPemain = [...new Set(nilai('pemain').flat())].sort((a, b) => a - b);
+    const semuaCara = Object.keys(LABEL_CARA).filter(k => nilai('cara').flat().includes(k));
+    buatTombol('pemain', semuaPemain, labelPemain);
+    buatTombol('cara', semuaCara, v => LABEL_CARA[v] || v);
+    // Filter yang hanya punya satu pilihan tidak berguna; sembunyikan sampai ada variasi.
+    if (semuaCara.length < 2) document.querySelector('[data-filter="cara"]').hidden = true;
+
+    const grid = document.getElementById('grid');
+    const kosong = document.createElement('div');
+    kosong.className = 'no-match';
+    kosong.textContent = 'Belum ada game yang cocok dengan pilihan ini.';
+
+    function terapkan() {
+      let tampil = 0;
+      for (const c of cards) {
+        const ok = (pilihan.pemain === 'semua' || c.dataset.pemain.split(',').includes(pilihan.pemain))
+                && (pilihan.cara === 'semua' || c.dataset.cara.split(',').includes(pilihan.cara));
+        c.hidden = !ok;
+        if (ok) tampil++;
+      }
+      if (tampil === 0) grid.prepend(kosong); else kosong.remove();
+    }
+  </script>
 </body>
 </html>
