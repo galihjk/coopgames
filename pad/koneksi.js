@@ -10,11 +10,13 @@
 //  Butuh dimuat lebih dulu:
 //    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 //
+//  Game TIDAK memakai file ini langsung, melainkan lewat kontrol.js (CoopPad). Lihat pad/CLAUDE.md.
+//
 //  Pemakaian:
 //    const h = CoopNet.host({ onSiap(kode){}, onMencoba(id,iceState){}, onMasuk(id,meta){}, onKeluar(id){},
 //                             onData(id,pesan){}, onPing(id,ms){}, onGalat(err){} });
 //    h.kirim(id, pesan); h.kirimSemua(pesan);
-//    const p = CoopNet.pad(kode, { onStatus(status,info,diag){}, onData(pesan){} });
+//    const p = CoopNet.pad(kode, { onStatus(status,info,diag){}, onData(pesan){}, idPaksa });  // idPaksa: hanya untuk uji
 //    p.kirim(pesan);
 //  status HP: menyambung | tersambung | terputus | gagal-jalur | tidak-ada | galat
 //  diag     : {perantara, layar, ice, kandidat, gagal}: langkah mana yang sudah/belum berhasil.
@@ -23,8 +25,9 @@
 //
 //  Keterbatasan (diuji 24-11-2026): server relay (TURN) gratis tanpa registrasi sudah tidak ada.
 //  Relay bawaan PeerJS (eu-0/us-0.turn.peerjs.com) dan Open Relay tidak bisa di-resolve lagi.
-//  Jadi sambungan hanya berhasil kalau jalur langsung berhasil, biasanya di WiFi router yang sama.
-//  Lewat hotspot HP atau data seluler, jalur langsung sering gagal.
+//  Jadi sambungan hanya berhasil kalau jalur langsung berhasil.
+//  Hasil uji HP sungguhan: WiFi router yang sama → tersambung, ping ±15 ms.
+//  Laptop di hotspot HP → gagal di jalur langsung (perantara ✓, layar ditemukan ✓, ICE tak pernah tersambung).
 // =====================================================================
 const CoopNet = (() => {
   const AWALAN = 'coopgames-pad-';
@@ -36,22 +39,31 @@ const CoopNet = (() => {
   const kodeSah = s => rapikanKode(s).length === PANJANG_KODE;
   const idPeer = kode => AWALAN + kode.toLowerCase();
 
-  // ID perangkat HP disimpan di window.name: bertahan saat halaman dimuat ulang di tab yang sama
-  // (jadi slot pemain tetap sama saat tersambung ulang), tetapi berbeda untuk tiap tab/iframe.
-  function idPerangkat() {
-    if (!/^coopPad:/.test(window.name)) window.name = 'coopPad:' + Math.random().toString(36).slice(2, 10);
-    return window.name.slice(8);
+  const acak = () => Math.random().toString(36).slice(2, 10);
+  const simpan = (tempat, k, v) => { try { tempat[k] = v; } catch (e) { /* penyimpanan diblokir */ } };
+  const baca = (tempat, k) => { try { return tempat[k] || ''; } catch (e) { return ''; } };
+
+  // ID perangkat HP disimpan di localStorage, jadi tetap sama walau browser ditutup lalu QR dipindai
+  // lagi. Akibatnya pemain kembali ke slotnya sendiri. Dua tab di satu HP dianggap pemain yang sama
+  // (sambungan lama diganti). `idPaksa` hanya untuk uji otomatis (banyak HP tiruan di satu browser).
+  function idPerangkat(idPaksa) {
+    if (idPaksa) return idPaksa;
+    let id = baca(localStorage, 'coopPadId');
+    if (!id) { id = acak(); simpan(localStorage, 'coopPadId', id); }
+    return id;
   }
 
   // ------------------------------------------------------------------ layar (tuan rumah)
+  // Kode ruang disimpan per tab (sessionStorage): memuat ulang halaman layar memakai kode yang sama,
+  // sehingga HP yang sudah tergabung tersambung ulang sendiri tanpa memindai QR baru.
   function host(cb = {}) {
     let kode = '', peer = null, coba = 0, nPing = 0;
     const sambungan = new Map(); // idPerangkat -> DataConnection
 
-    function mulai() {
-      kode = buatKode();
+    function mulai(kodePakai) {
+      kode = kodePakai || buatKode();
       peer = new Peer(idPeer(kode), { debug: 1 });
-      peer.on('open', () => cb.onSiap && cb.onSiap(kode));
+      peer.on('open', () => { coba = 0; simpan(sessionStorage, 'coopRuang', kode); cb.onSiap && cb.onSiap(kode); });
       peer.on('connection', conn => {
         // diagnosis: HP sudah mengetuk lewat perantara, jalur langsung sedang dibangun
         const pc = conn.peerConnection, idCoba = (conn.metadata && conn.metadata.id) || conn.peer;
@@ -79,11 +91,20 @@ const CoopNet = (() => {
       // putus dari server perantara: sambungan yang sudah ada tetap jalan, tapi HP baru tak bisa masuk
       peer.on('disconnected', () => { if (!peer.destroyed) setTimeout(() => { try { peer.reconnect(); } catch (e) { /* coba lagi nanti */ } }, 1500); });
       peer.on('error', err => {
-        if (err.type === 'unavailable-id' && coba++ < 5) { peer.destroy(); mulai(); return; } // kode bentrok, buat baru
+        if (err.type === 'unavailable-id') {
+          // Kode masih dipegang: bisa sisa halaman ini sebelum dimuat ulang (server perantara butuh
+          // beberapa detik untuk melepasnya) atau bentrok dengan ruang orang lain.
+          // Coba kode yang sama beberapa kali dulu, lalu menyerah dan buat kode baru.
+          const lama = kode; peer.destroy(); coba++;
+          if (coba <= 6) setTimeout(() => mulai(lama), 1500);
+          else { coba = 0; mulai(); }
+          return;
+        }
         cb.onGalat && cb.onGalat(err);
       });
     }
-    mulai();
+    const kodeTersimpan = baca(sessionStorage, 'coopRuang');
+    mulai(kodeSah(kodeTersimpan) ? kodeTersimpan : '');
 
     setInterval(() => {
       const pesan = { t: 'p', n: ++nPing, ts: performance.now() };
@@ -99,7 +120,7 @@ const CoopNet = (() => {
 
   // ------------------------------------------------------------------ HP (pengendali)
   function pad(kode, cb = {}) {
-    const id = idPerangkat();
+    const id = idPerangkat(cb.idPaksa);
     let peer = null, conn = null, timer = null, berhenti = false;
     const status = (s, info, diag) => cb.onStatus && cb.onStatus(s, info, diag);
     const jadwal = ms => { clearTimeout(timer); timer = setTimeout(sambung, ms); };

@@ -15,18 +15,13 @@ Kumpulan game **co-op** di browser (semua pemain satu tim). Jumlah pemain dan ca
 | `dungeon-duo-portrait/` | Dungeon Duo: dungeon tanpa akhir | 1–2 (solo + bot) | Satu HP, berdampingan |
 | `nebula-duo/` | Nebula Duo: shooter vertikal | 1–2 (solo + bot) | Satu HP, berdampingan |
 
-Bukan game (eksperimen format **"Layar + HP pengendali"**: layar komputer/TV + tiap pemain memakai HP-nya
-sebagai kontroler):
-- `pad/koneksi.js`: pustaka koneksi bersama (`CoopNet.host` / `CoopNet.pad`). Memakai PeerJS 1.5.4 dari
-  CDN + server perantara publik PeerJS, tanpa registrasi. Data mengalir langsung HP → layar (WebRTC).
-  Kalau perantaranya bermasalah, cukup ganti file ini.
-- `pad/index.html`: halaman pengendali di HP (`/pad/#KODE`). Berisi joystick mengambang dan 3 tombol aksi:
-  ketuk = aksi; tahan + geser = bidik, lepas = aksi. Format pesannya dijelaskan di komentar kepala file.
-- `uji-koneksi/`: halaman layar untuk menguji koneksi (QR, arena, ping/lonjakan per pemain). Belum ada
-  kartunya di galeri.
-- Uji otomatis: server statis lokal + Edge headless lewat DevTools Protocol (`--remote-debugging-port`),
-  satu halaman pembungkus berisi iframe layar + iframe HP, dan sentuhan dikirim dengan
-  `Input.dispatchTouchEvent`. Koneksinya memakai server PeerJS sungguhan.
+Bukan game, tapi fondasi format **"Layar + HP pengendali"**: layar komputer/TV + tiap pemain memakai HP-nya
+sebagai kontroler.
+- `pad/`: pustaka bersama (koneksi PeerJS tanpa registrasi, lapisan kontrol `CoopPad`, halaman
+  pengendali generik `/pad/#KODE`). **Acuan untuk game baru format ini ada di `pad/CLAUDE.md`.**
+- `uji-koneksi/`: halaman uji koneksi, sekaligus contoh pemakaian `CoopPad`. Belum ada kartunya di galeri.
+- Batasan: hanya jalan di WiFi router yang sama (diuji: ping ±15 ms). Lewat hotspot HP gagal, karena
+  relay gratis tanpa registrasi sudah tidak ada.
 
 Arsip di luar repo: `d:\Galih\bikin game\arsip\dungeon-duo` (Dungeon Duo landscape lama). Jangan
 dimasukkan lagi.
