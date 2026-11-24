@@ -67,8 +67,10 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
 - **Gelombang cincin (hazard `ring`) bisa diparry/ditahan dari arah mana pun** (`omni` di `hurtPlayer`):
   dulu tak bisa diparry dan menjadi sumber kena terbanyak bagi pemain yang mengandalkan parry, padahal
   guling dihukum oleh proyektil yang masih beterbangan.
-- **Riwayat per level** (`SAVE.time`, `SAVE.losses`) dicatat permanen agar pemain tahu sudah berapa lama
-  & berapa kali kalah; tampil di layar jeda dan pemilih level. "Reset progres" ikut menghapusnya.
+- **Catatan per kesulitan** `SAVE.rec[diff]` (`best`, `time`, `losses`; akses lewat `REC()`): Santai & Normal
+  tidak sebanding, jadi rekor/riwayat dipisah. Tampil di ringkasan, layar jeda, pemilih level.
+- **Bot saat bos berperisai** hanya mengincar totem, terutama yang dekat rekan (walau jauh/terhalang), dan saat
+  bos aktif bot menjaga jarak lebih rapat dengan P1: dulu bot menembaki bos yang kebal & terpisah sendirian.
 - Musuh biasa naik kekuatannya per level (`LEVEL_SCALE`), bos tidak (diatur sendiri per bos).
 
 ## Resep uji headless (Node)

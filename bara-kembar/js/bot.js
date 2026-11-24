@@ -160,13 +160,20 @@ function botThreat(b) {
 
 // ---------- pilih sasaran ----------
 function botTarget(b, h, melee) {
+  // bos berperisai: incar totem saja (walau jauh/terhalang; jalannya lewat botPathAngle), utamakan totem
+  // yang dekat rekan supaya totem dibersihkan berdua, bukan terpisah di sisi arena yang berbeda
+  if (L.bossState === 'active' && L.enemies.some(o => o.shield && !o.dead)) {
+    const score = o => (h.alive ? dist(h, o) * .6 : 0) + dist(b, o) * .4;
+    const ts = L.enemies.filter(o => o.type === 'totem' && !o.dead);
+    if (ts.length) return ts.reduce((a, c) => score(c) < score(a) ? c : a);
+  }
   let best = null, bs = 1e9;
   for (const e of targetables()) {
     if (e.air) continue;
     const d = dist(b, e);
     if (melee ? d > 360 || (d > 160 && !los(b, e)) : d > 430 || !los(b, e)) continue;
     let s = melee ? d * .5 + (h.alive ? dist(h, e) * .5 : d * .5) : d;   // pedang: lindungi rekan
-    if (e.shield) s += 400;
+    if (e.shield) continue;                                              // bos kebal: percuma diserang
     if (melee && e.type === 'guard' && Math.abs(angDiff(e.face, angTo(e, b))) < 1.1) s += 120; // tameng penjaga menghadap bot → cari sasaran lain dulu                                             // bos berperisai → incar totem dulu
     if (e.tgt === b) s -= 90;
     if (h.alive && (melee ? e.tgt === h : dist(h, e) < 130)) s -= 70;
@@ -237,8 +244,8 @@ function botUpdate(b, h, dt) {
   // 2) minum ramuan: tahan tombol 3 sampai mulai minum (melepas lebih awal = ganti senjata)
   if (brain.healHold) {
     if (b.state === 'free' && b.flasks > 0) inp.h[2] = 1; else brain.healHold = false;
-  } else if (b.state === 'free' && b.flasks > 0 && b.hp < b.maxHp * (.3 + s * .2) && !(th && th.t < 1.5)
-    && !L.enemies.some(e => !e.dead && !(e.boss && L.bossState !== 'active') && dist(e, b) < 150)) {
+  } else if (b.state === 'free' && b.flasks > 0 && b.hp < b.maxHp * (.3 + s * .2 + (bossFight() ? .15 : 0)) && !(th && th.t < 1.5)
+    && !L.enemies.some(e => !e.dead && !(e.boss && L.bossState !== 'active') && dist(e, b) < (bossFight() ? 100 : 150))) { // saat bos: minum lebih awal
     brain.healHold = true; inp.h[2] = 1;
   }
 
@@ -270,14 +277,15 @@ function botUpdate(b, h, dt) {
     wantAtk = !!tgt && d <= stop + 30 && !h.down;
   } else if (tgt && sword) {
     const d = dist(b, tgt), a = angTo(b, tgt);
-    if (h.alive && dist(b, h) > 280) move(botPathAngle(b, h), 1);         // jangan tertinggal
+    if (h.alive && dist(b, h) > (bossFight() ? 220 : 280)) move(botPathAngle(b, h), 1); // jangan tertinggal (saat bos: lebih rapat)
     else if (brain.recover) move(a + Math.PI + brain.strafe * .6, .9);    // stamina tipis → mundur dulu
     else if (d - tgt.r > 34) move(botPathAngle(b, tgt), 1);                // dekati
     else move(a, .25);                                                     // sudah dekat → hadapi
     wantAtk = true;
   } else if (tgt) {
     const d = dist(b, tgt), a = angTo(b, tgt);
-    if (h.alive && dist(b, h) > 250) move(botPathAngle(b, h), 1);
+    if (h.alive && dist(b, h) > (bossFight() ? 200 : 250)) move(botPathAngle(b, h), 1); // saat bos: tetap dekat rekan agar serangan terbagi
+    else if (!los(b, tgt)) move(botPathAngle(b, tgt), .9);                // terhalang pilar → memutar dulu
     else if (d < 120) move(a + Math.PI + brain.strafe * .5, 1);           // terlalu dekat → mundur
     else if (d > 300) move(botPathAngle(b, tgt), .9);                     // terlalu jauh → maju
     else {                                                                // jarak ideal → memutar
@@ -312,7 +320,7 @@ function botUpdate(b, h, dt) {
       if (!fleeing) move(a, .25); // saat menarik busur, arah gerak = arah bidik
       if (!(ready && err < .25 + (1 - s) * .6)) inp.h[0] = 1;   // kemampuan rendah → lebih asal lepas
     }
-  } else if (b.state === 'free' && wantAtk && tgt && !fleeing && !brain.healHold && b.stam > 30 && brain.shotCd <= 0) {
+  } else if (b.state === 'free' && wantAtk && tgt && !fleeing && !brain.healHold && b.stam > 30 && brain.shotCd <= 0 && los(b, tgt)) {
     const d = dist(b, tgt), a = angTo(b, tgt);
     if (Math.abs(angDiff(b.face, a)) < 1.2) {
       tap(0);

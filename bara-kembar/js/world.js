@@ -424,9 +424,22 @@ if (!Array.isArray(SAVE.colors)) SAVE.colors = [0, 1]; // indeks PALETTE (player
 // Kesulitan: 'easy' (Santai) atau 'normal'. Pemain baru tanpa progres mulai di Santai.
 if (SAVE.diff !== 'easy' && SAVE.diff !== 'normal') SAVE.diff = SAVE.cleared.length ? 'normal' : 'easy';
 if (!Array.isArray(SAVE.clearedNormal)) SAVE.clearedNormal = SAVE.diff === 'normal' ? SAVE.cleared.slice() : []; // tamat di Normal → tanda ✦
-if (!SAVE.best || typeof SAVE.best !== 'object') SAVE.best = {}; // rekor waktu per level (detik)
-if (!SAVE.time || typeof SAVE.time !== 'object') SAVE.time = {};       // total waktu bermain per level (detik), termasuk percobaan gagal
-if (!SAVE.losses || typeof SAVE.losses !== 'object') SAVE.losses = {}; // berapa kali kalah total (semua pemain tumbang) per level
+// Catatan per kesulitan (Santai & Normal tidak sebanding, jadi dipisah): SAVE.rec[diff] = {
+//   best: rekor waktu per level (detik), time: total waktu bermain per level (termasuk yang gagal),
+//   losses: berapa kali kalah total (semua pemain tumbang) per level }
+const newRec = () => ({ best: {}, time: {}, losses: {} });
+if (!SAVE.rec || typeof SAVE.rec !== 'object') {
+  // pindahan dari format lama (best/time/losses tanpa kesulitan): kesulitan rekor lama tidak diketahui →
+  // dianggap Santai (rekor Normal mulai dari nol); waktu & kalah (baru dicatat) → kesulitan yang sedang dipilih
+  SAVE.rec = { easy: newRec(), normal: newRec() };
+  if (SAVE.best && typeof SAVE.best === 'object') SAVE.rec.easy.best = SAVE.best;
+  if (SAVE.time && typeof SAVE.time === 'object') SAVE.rec[SAVE.diff].time = SAVE.time;
+  if (SAVE.losses && typeof SAVE.losses === 'object') SAVE.rec[SAVE.diff].losses = SAVE.losses;
+  delete SAVE.best; delete SAVE.time; delete SAVE.losses;
+}
+for (const d of ['easy', 'normal']) SAVE.rec[d] = Object.assign(newRec(), SAVE.rec[d]);
+const REC = () => SAVE.rec[SAVE.diff];                  // catatan kesulitan yang sedang dipilih
+const DIFF_NAME = () => isEasy() ? 'Santai' : 'Normal';
 const isEasy = () => SAVE.diff === 'easy';
 // aturan yang berbeda antar kesulitan (Santai | Normal)
 const RULE = {

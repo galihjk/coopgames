@@ -86,11 +86,11 @@ function updateFlow(dt) {
 function fadeTo(cb) { G.fadeDir = 1; G.fadeCb = cb; }
 // level tamat: simpan progres & rekor, lalu tampilkan ringkasan statistik (lanjut lewat tombol P1)
 function levelCleared() {
-  const idx = L.idx, s = L.stats, prev = SAVE.best[idx];
+  const idx = L.idx, s = L.stats, rec = REC(), prev = rec.best[idx];
   const unlockedBefore = unlockedCount();
   if (!SAVE.cleared.includes(idx)) SAVE.cleared.push(idx);
   if (!isEasy() && !SAVE.clearedNormal.includes(idx)) SAVE.clearedNormal.push(idx);
-  const record = prev == null || s.t < prev; if (record) SAVE.best[idx] = s.t;
+  const record = prev == null || s.t < prev; if (record) rec.best[idx] = s.t;
   saveGame();
   G.clear = { idx, s, prev, record, easy: isEasy(), newUnlock: unlockedCount() > unlockedBefore ? unlockedCount() - 1 : -1 };
   fadeTo(() => { G.mode = 'clear'; G.clearT = 0; Snd.music(false); });

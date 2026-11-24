@@ -298,5 +298,5 @@ function revivePlayer(p, hpFrac) {
 }
 function gameOver() {
   if (G.mode === 'over') return;
-  G.mode = 'over'; G.overT = 0; L.stats.overs++; SAVE.losses[L.idx] = (SAVE.losses[L.idx] || 0) + 1; saveGame(); Snd.over(); Snd.music(false);
+  G.mode = 'over'; G.overT = 0; L.stats.overs++; REC().losses[L.idx] = (REC().losses[L.idx] || 0) + 1; saveGame(); Snd.over(); Snd.music(false);
 }

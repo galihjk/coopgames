@@ -4,7 +4,7 @@
 // =====================================================================
 function update(dt) {
   if (G.mode === 'play') {
-    L.stats.t += dt; SAVE.time[L.idx] = (SAVE.time[L.idx] || 0) + dt;
+    L.stats.t += dt; REC().time[L.idx] = (REC().time[L.idx] || 0) + dt;
     G.saveT = (G.saveT || 0) + dt; if (G.saveT > 15) { G.saveT = 0; saveGame(); } // simpan waktu bermain berkala
   }
   L.fieldT -= dt; if (L.fieldT <= 0) { computeFields(); L.fieldT = .3; }

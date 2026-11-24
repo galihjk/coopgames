@@ -521,7 +521,7 @@ function summonTotems(e) {
   const n = (e.p2 ? 4 : 3) - e.totems.length;
   for (let k = 0; k < n; k++) {
     const g = k / n * TAU + Math.PI / 2 + rand(-.25, .25); let pos = null;
-    for (let r = 240; r >= 120 && !pos; r -= 30) { const x = e.x + Math.cos(g) * r, y = e.y + Math.sin(g) * r * .6; if (inArena({ x, y }) && !tileSolidW(x, y) && players.every(p => dist(p, { x, y }) > 50)) pos = { x, y }; }
+    for (let r = 185; r >= 110 && !pos; r -= 25) { const x = e.x + Math.cos(g) * r, y = e.y + Math.sin(g) * r * .6; if (inArena({ x, y }) && !tileSolidW(x, y) && players.every(p => dist(p, { x, y }) > 50)) pos = { x, y }; }
     pos = pos || L.arenaTiles[(Math.random() * L.arenaTiles.length) | 0];
     const t = makeEnemy('totem', pos.x, pos.y); t.summon = true; t.state = 'chase'; t.cd = rand(1, 2.2); t.face = angTo(t, e) + Math.PI;
     L.enemies.push(t); e.totems.push(t);

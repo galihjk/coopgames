@@ -184,7 +184,7 @@ function swatchRow(i, cy) {
 // lama bermain: "1 j 12 m" / "12 m" / "40 d"
 const fmtLong = t => t >= 3600 ? Math.floor(t / 3600) + ' j ' + Math.floor(t % 3600 / 60) + ' m' : t >= 60 ? Math.floor(t / 60) + ' m' : Math.floor(t) + ' d';
 function levelSub(k) { // nama level, bergantian dengan riwayat (kalau sudah pernah dimainkan)
-  const t = SAVE.time[k] || 0, n = SAVE.losses[k] || 0;
+  const t = REC().time[k] || 0, n = REC().losses[k] || 0; // riwayat kesulitan yang sedang dipilih
   if (t < 5 || Math.floor(G.t / 3) % 2 === 0) return LEVELS[k].name;
   return 'dimainkan ' + fmtLong(t) + (n ? '  ·  kalah ' + n + '×' : '');
 }
@@ -268,7 +268,7 @@ function drawMenuButtons() {
 const resetArmed = () => G.resetArm != null && G.t - G.resetArm < 3;
 function resetProgress() {
   if (!resetArmed()) { G.resetArm = G.t; return; }
-  G.resetArm = null; Object.assign(SAVE, { cleared: [], clearedNormal: [], best: {}, time: {}, losses: {} }); saveGame(); G.sel = 0; G.resetDone = G.t; // warna, mode & kesulitan tetap
+  G.resetArm = null; Object.assign(SAVE, { cleared: [], clearedNormal: [], rec: { easy: newRec(), normal: newRec() } }); saveGame(); G.sel = 0; G.resetDone = G.t; // warna, mode & kesulitan tetap
 }
 function toggleDiff() { SAVE.diff = isEasy() ? 'normal' : 'easy'; saveGame(); }
 function pickLevel(d) { G.sel = (G.sel + d + LEVELS.length) % LEVELS.length; }
@@ -328,7 +328,7 @@ function drawPause() {
   for (const i of frames()) inFrame(i, (LW, LH) => {
     if (i === 0 && L && !G.gestureWarn) { // statistik level ini (sesi sekarang) + riwayat tersimpan
       const s = L.stats, a = 'Waktu ' + fmtTime(s.t) + '  ·  kalah ' + s.overs + '×  ·  tumbang ' + s.downs[0] + '/' + s.downs[1];
-      const b = 'Total di level ini: ' + fmtLong(SAVE.time[L.idx] || 0) + '  ·  kalah ' + (SAVE.losses[L.idx] || 0) + '×';
+      const b = 'Total di level ini (' + DIFF_NAME() + '): ' + fmtLong(REC().time[L.idx] || 0) + '  ·  kalah ' + (REC().losses[L.idx] || 0) + '×';
       if (G.solo) { txt(a, LW / 2, LH * .3 + 92 * U, 11 * U, '#e8dcc0', 'center', 'sans-serif', '600'); txt(b, LW / 2, LH * .3 + 110 * U, 10 * U, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '500'); }
       else { txt(a, 124 * U, LH / 2 + 16 * U, 10 * U, '#e8dcc0', 'left', 'sans-serif', '600'); txt(b, 124 * U, LH / 2 + 31 * U, 9 * U, 'rgba(232,217,176,.7)', 'left', 'sans-serif', '500'); }
     }
@@ -355,7 +355,7 @@ function drawWin() {
   G.winT += 1 / 60;
   emberBg(1 / 60);
   const t = G.winT, fade = (t0, d = 1.2) => clamp((t - t0) / d, 0, 1), u = U;
-  const best = Object.values(SAVE.best).reduce((a, b) => a + b, 0);
+  const best = Object.values(REC().best).reduce((a, b) => a + b, 0);
   for (const i of frames()) inFrame(i, (LW, LH) => {
     const top = winTop(LH);
     EPILOG.forEach((s, k) => { ctx.globalAlpha = fade(.8 + k * 1.1); txt(s, LW / 2, top + k * 20 * u, 13 * u, k === 0 ? '#ffd27a' : '#e8dcc0', 'center', SERIF, k === 0 ? '400' : 'italic 400'); });
@@ -363,7 +363,7 @@ function drawWin() {
     txt('NYALA BERTAHAN', LW / 2, top + 152 * u, 30 * u * (1 + (1 - fade(8, 1.6)) * .15), '#ffd27a', 'center', SERIF, '400');
     ctx.globalAlpha = fade(9.2);
     txt(SAVE.cleared.length + ' dari ' + LEVELS.length + ' level tamat' + (SAVE.clearedNormal.length === LEVELS.length ? '  ·  semua di Normal ✦' : ''), LW / 2, top + 186 * u, 11 * u, '#cfc3a8', 'center', 'sans-serif', '500');
-    if (best) txt('Total rekor waktu: ' + fmtTime(best), LW / 2, top + 205 * u, 11 * u, '#cfc3a8', 'center', 'sans-serif', '500');
+    if (best) txt('Total rekor waktu (' + DIFF_NAME() + '): ' + fmtTime(best), LW / 2, top + 205 * u, 11 * u, '#cfc3a8', 'center', 'sans-serif', '500');
     txt('TAMAT  ·  Terima kasih telah bermain!', LW / 2, top + 234 * u, 12 * u, '#e8d9b0', 'center', SERIF, 'italic 400');
     ctx.globalAlpha = 1;
     if (i === 1 && t > WIN_BTN_T) txt('Menunggu P1…', LW / 2, top + 284 * u, 13 * u, 'rgba(232,217,176,.7)', 'center', SERIF, 'italic 400');
@@ -400,8 +400,8 @@ function drawClear() {
       [[a, x1], [b, x2]].forEach(([v, x], k) => txt(v == null ? '—' : v + (label === 'Akurasi panah' ? '%' : ''), x, y, 12 * u, best === k ? '#ffd27a' : '#e8e0d0', 'center', 'sans-serif', best === k ? '700' : '500'));
     }
     y += 32 * u;
-    if (c.record) txt(c.prev == null ? '✦ Rekor waktu pertama tercatat' : '✦ Rekor waktu baru!  (sebelumnya ' + fmtTime(c.prev) + ')', LW / 2, y, 11.5 * u, '#ffb347', 'center', 'sans-serif', '700');
-    else txt('Rekor waktu level ini: ' + fmtTime(c.prev), LW / 2, y, 11 * u, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '500');
+    if (c.record) txt(c.prev == null ? '✦ Rekor waktu pertama (' + DIFF_NAME() + ') tercatat' : '✦ Rekor waktu ' + DIFF_NAME() + ' baru!  (sebelumnya ' + fmtTime(c.prev) + ')', LW / 2, y, 11.5 * u, '#ffb347', 'center', 'sans-serif', '700');
+    else txt('Rekor waktu level ini (' + DIFF_NAME() + '): ' + fmtTime(c.prev), LW / 2, y, 11 * u, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '500');
     if (c.newUnlock >= 0) txt('🔓 Level ' + (c.newUnlock + 1) + ' terbuka!', LW / 2, y + 20 * u, 11.5 * u, '#ffd27a', 'center', 'sans-serif', '700');
     if (i === 1 && G.clearT > .6) txt('Menunggu P1…', LW / 2, top + 289 * u, 13 * u, 'rgba(232,217,176,.7)', 'center', SERIF, 'italic 400');
     ctx.globalAlpha = 1;
