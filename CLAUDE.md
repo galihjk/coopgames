@@ -12,7 +12,7 @@ Kumpulan game **co-op** di browser (semua pemain satu tim). Jumlah pemain dan ca
 | Folder | Game | Pemain | Cara main |
 |---|---|---|---|
 | `bara-kembar/` | Bara Kembar: souls-like 10 level | 1–2 (solo + bot) | Satu HP, berhadapan |
-| `dungeon-duo-portrait/` | Dungeon Duo: dungeon tanpa akhir | 2 | Satu HP, berdampingan |
+| `dungeon-duo-portrait/` | Dungeon Duo: dungeon tanpa akhir | 1–2 (solo + bot) | Satu HP, berdampingan |
 | `nebula-duo/` | Nebula Duo: shooter vertikal | 1–2 (solo + bot) | Satu HP, berdampingan |
 
 Arsip di luar repo: `d:\Galih\bikin game\arsip\dungeon-duo` (Dungeon Duo landscape lama). Jangan
