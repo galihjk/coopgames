@@ -24,7 +24,7 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
 ## Alur
 - `G.mode`: `title` → `play` ⇄ `pause` / `over` (semua tumbang → `respawnAll` di api unggun terakhir) →
   `clear` (ringkasan level) → `play` level berikutnya, atau `win` (epilog) setelah level terakhir.
-  `touchtest` dibuka dari layar judul.
+  `touchtest` (Tes sentuh) dan `records` (Catatan, tab kesulitan di `G.recView`) dibuka dari layar judul.
 - Level: jelajah → nyalakan api unggun (checkpoint) → kedua pemain di depan kabut → masuk arena,
   gerbang tersegel (`L.bossState='active'`) → bos tumbang → portal → kedua pemain masuk portal.
 - Level dengan `bosses: [...]` (L6, L8) = beberapa bos; menang setelah semua mati (`bossFallen` lalu `bossDefeated`).

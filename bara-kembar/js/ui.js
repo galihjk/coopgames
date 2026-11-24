@@ -204,11 +204,21 @@ function menuButtons(i) {
       { id: 'start', x: x0 + bw * .2, y: y0 + 116 * u, w: bw * .6, h: 44 * u, label: open ? 'MULAI' : 'TERKUNCI', hl: open, off: !open },
       ...swatchRow(i, y0 + 198 * u),
       // reset progres: ketuk sekali untuk bersiap, ketuk lagi dalam 3 detik untuk menghapus
-      { id: 'ttest', tiny: true, x: LW / 2 - 154 * u, y: LH - 56 * u, w: 148 * u, h: 24 * u, label: 'Tes sentuh layar' },
-      ...(SAVE.cleared.length ? [{ id: 'reset', tiny: true, x: LW / 2 + 6 * u, y: LH - 56 * u, w: 148 * u, h: 24 * u, label: resetArmed() ? 'Ketuk lagi untuk mereset' : 'Reset progres level', warn: resetArmed() }] : []),
+      // baris tombol kecil: Catatan · Tes sentuh · Reset progres (reset hanya bila ada progres)
+      { id: 'records', tiny: true, x: LW / 2 - 183 * u, y: LH - 56 * u, w: 118 * u, h: 24 * u, label: 'Catatan' },
+      { id: 'ttest', tiny: true, x: LW / 2 - 59 * u, y: LH - 56 * u, w: 118 * u, h: 24 * u, label: 'Tes sentuh' },
+      ...(SAVE.cleared.length ? [{ id: 'reset', tiny: true, x: LW / 2 + 65 * u, y: LH - 56 * u, w: 118 * u, h: 24 * u, label: resetArmed() ? 'Ketuk lagi' : 'Reset progres', warn: resetArmed() }] : []),
     ];
   }
   if (!host) return [];
+  if (G.mode === 'records') { // tab kesulitan + kembali
+    const y = recTop(LH), tw = 110 * u;
+    return [
+      { id: 'recv', d: 'normal', x: LW / 2 - tw - 4 * u, y: y + 18 * u, w: tw, h: 30 * u, label: 'NORMAL', small: true, hl: G.recView === 'normal' },
+      { id: 'recv', d: 'easy', x: LW / 2 + 4 * u, y: y + 18 * u, w: tw, h: 30 * u, label: 'SANTAI', small: true, hl: G.recView === 'easy' },
+      { id: 'recback', x: LW / 2 - 60 * u, y: y + 300 * u, w: 120 * u, h: 38 * u, label: 'KEMBALI' },
+    ];
+  }
   if (G.mode === 'touchtest') return [{ id: 'ttexit', x: LW / 2 - 60 * u, y: LH * .5 + 20 * u, w: 120 * u, h: 40 * u, label: 'SELESAI' }];
   if (G.mode === 'pause') {
     if (G.solo) { // satu pemain: separuh atas layar kosong
@@ -282,6 +292,9 @@ function uiTap(q) {
         if (b.id === 'mode') toggleSolo();
         else if (b.id === 'reset') resetProgress();
         else if (b.id === 'ttest') { resetTouchTest(); G.mode = 'touchtest'; }
+        else if (b.id === 'records') { G.recView = SAVE.diff; G.mode = 'records'; }
+        else if (b.id === 'recv') G.recView = b.d;
+        else if (b.id === 'recback') G.mode = 'title';
         else if (b.id === 'ttexit') { resetTouchTest(); G.mode = 'title'; }
         else if (b.id === 'diff') toggleDiff();
         else if (b.id === 'cont') { if (G.fadeDir === 0) continueAfterClear(); }
@@ -449,4 +462,36 @@ const GESTURE_WARN = [
 function drawGestureWarn(LW, LH) {
   const solo = G.solo, x = solo ? LW / 2 : 124 * U, y0 = solo ? LH * .3 + 100 * U : LH / 2 + 22 * U, gap = solo ? 19 : 16; // 2 pemain: rapat agar tidak menimpa bar HP
   GESTURE_WARN.forEach(([s, c, sz], k) => txt(s, x, y0 + k * gap * U + (k ? 6 * U : 0), sz * U, c, solo ? 'center' : 'left', 'sans-serif', k ? '500' : '700'));
+}
+
+// ---------- layar Catatan: rekor, lama bermain & jumlah kalah tiap level, per kesulitan ----------
+const recTop = LH => G.solo ? LH * .2 : LH / 2 + 16 * U;
+function drawRecords() {
+  emberBg(1 / 60);
+  const rec = SAVE.rec[G.recView || SAVE.diff], u = U;
+  for (const i of frames()) inFrame(i, (LW, LH) => {
+    const top = recTop(LH), X = { lv: LW * .05, nm: LW * .1, st: LW * .53, best: LW * .65, time: LW * .8, loss: LW * .94 };
+    txt('CATATAN', LW / 2, top, 20 * u, '#ffd27a', 'center', SERIF, '400');
+    let y = top + 66 * u;
+    for (const [k, s] of [['best', 'rekor'], ['time', 'dimainkan'], ['loss', 'kalah']]) txt(s, X[k], y, 9 * u, 'rgba(232,217,176,.6)', 'center', 'sans-serif', '600');
+    ctx.fillStyle = 'rgba(232,217,176,.2)'; ctx.fillRect(X.lv, y + 8 * u, LW * .9, 1);
+    let tTime = 0, tLoss = 0, tBest = 0, nBest = 0;
+    LEVELS.forEach((lv, k) => {
+      y += 19 * u;
+      const open = isUnlocked(k), best = rec.best[k], time = rec.time[k] || 0, loss = rec.losses[k] || 0, dim = open ? 1 : .4;
+      tTime += time; tLoss += loss; if (best != null) { tBest += best; nBest++; }
+      ctx.globalAlpha = dim;
+      txt(String(k + 1), X.lv, y, 10 * u, '#cfc3a8', 'left', 'sans-serif', '700');
+      txt(lv.name, X.nm, y, 10 * u, '#e8dcc0', 'left', SERIF, '400');
+      txt(!open ? '🔒' : SAVE.clearedNormal.includes(k) ? '✦' : SAVE.cleared.includes(k) ? '✓' : '·', X.st, y, 10 * u, '#ffb347', 'center', 'sans-serif', '700');
+      txt(best != null ? fmtTime(best) : '—', X.best, y, 10 * u, best != null ? '#ffd27a' : 'rgba(232,217,176,.4)', 'center', 'sans-serif', '600');
+      txt(time >= 5 ? fmtLong(time) : '—', X.time, y, 10 * u, time >= 5 ? '#e8e0d0' : 'rgba(232,217,176,.4)', 'center', 'sans-serif', '500');
+      txt(loss ? loss + '×' : '—', X.loss, y, 10 * u, loss ? '#ff9a80' : 'rgba(232,217,176,.4)', 'center', 'sans-serif', '600');
+      ctx.globalAlpha = 1;
+    });
+    txt('Total: dimainkan ' + fmtLong(tTime) + '  ·  kalah ' + tLoss + '×' + (nBest ? '  ·  rekor gabungan ' + fmtTime(tBest) + ' (' + nBest + ' level)' : ''),
+      LW / 2, y + 26 * u, 9.5 * u, '#cfc3a8', 'center', 'sans-serif', '500');
+    if (i === 1) txt('Menunggu P1…', LW / 2, top + 319 * u, 12 * u, 'rgba(232,217,176,.7)', 'center', SERIF, 'italic 400');
+  });
+  drawMenuButtons();
 }
