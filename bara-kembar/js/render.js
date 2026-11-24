@@ -426,6 +426,7 @@ function render() {
   if (G.mode === 'title') { drawTitle(); drawFade(); return; }
   if (G.mode === 'win') { drawWin(); drawFade(); return; }
   if (G.mode === 'clear') { drawClear(); drawFade(); return; }
+  if (G.mode === 'touchtest') { drawTouchTest(); drawFade(); return; }
   const shx = (Math.random() - .5) * G.shake * 2, shy = (Math.random() - .5) * G.shake * 2;
   worldT(shx, shy);
   ctx.drawImage(L.cv, 0, 0);

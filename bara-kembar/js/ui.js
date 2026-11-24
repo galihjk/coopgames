@@ -197,10 +197,12 @@ function menuButtons(i) {
       { id: 'start', x: x0 + bw * .2, y: y0 + 116 * u, w: bw * .6, h: 44 * u, label: open ? 'MULAI' : 'TERKUNCI', hl: open, off: !open },
       ...swatchRow(i, y0 + 198 * u),
       // reset progres: ketuk sekali untuk bersiap, ketuk lagi dalam 3 detik untuk menghapus
-      ...(SAVE.cleared.length ? [{ id: 'reset', tiny: true, x: LW / 2 - 75 * u, y: LH - 56 * u, w: 150 * u, h: 24 * u, label: resetArmed() ? 'Ketuk lagi untuk mereset' : 'Reset progres level', warn: resetArmed() }] : []),
+      { id: 'ttest', tiny: true, x: LW / 2 - 154 * u, y: LH - 56 * u, w: 148 * u, h: 24 * u, label: 'Tes sentuh layar' },
+      ...(SAVE.cleared.length ? [{ id: 'reset', tiny: true, x: LW / 2 + 6 * u, y: LH - 56 * u, w: 148 * u, h: 24 * u, label: resetArmed() ? 'Ketuk lagi untuk mereset' : 'Reset progres level', warn: resetArmed() }] : []),
     ];
   }
   if (!host) return [];
+  if (G.mode === 'touchtest') return [{ id: 'ttexit', x: LW / 2 - 60 * u, y: LH * .5 + 20 * u, w: 120 * u, h: 40 * u, label: 'SELESAI' }];
   if (G.mode === 'pause') {
     if (G.solo) { // satu pemain: separuh atas layar kosong
       const bw = 120 * u, bh = 44 * u, y = LH * .3 + 30 * u;
@@ -272,6 +274,8 @@ function uiTap(q) {
         Snd.swap();
         if (b.id === 'mode') toggleSolo();
         else if (b.id === 'reset') resetProgress();
+        else if (b.id === 'ttest') { resetTouchTest(); G.mode = 'touchtest'; }
+        else if (b.id === 'ttexit') { resetTouchTest(); G.mode = 'title'; }
         else if (b.id === 'diff') toggleDiff();
         else if (b.id === 'cont') { if (G.fadeDir === 0) continueAfterClear(); }
         else if (b.id === 'prev') pickLevel(-1);
@@ -279,10 +283,11 @@ function uiTap(q) {
         else if (b.id === 'lvl' || b.id === 'start') startGame(G.sel);
         else if (b.id === 'resume') G.mode = 'play';
         else if (b.id === 'quit' || b.id === 'title') { G.mode = 'title'; Snd.music(false); }
-        return;
+        return true;
       }
     }
   }
+  return false;
 }
 function togglePause() {
   if (G.mode === 'play') { G.mode = 'pause'; for (const n of IN) { n.tb = [0, 0, 0]; n.joy = null; n.buf = [-1, -1, -1]; } ptrs.clear(); }
@@ -386,6 +391,27 @@ function drawClear() {
     if (c.newUnlock >= 0) txt('🔓 Level ' + (c.newUnlock + 1) + ' terbuka!', LW / 2, y + 20 * u, 11.5 * u, '#ffd27a', 'center', 'sans-serif', '700');
     if (i === 1 && G.clearT > .6) txt('Menunggu P1…', LW / 2, top + 289 * u, 13 * u, 'rgba(232,217,176,.7)', 'center', SERIF, 'italic 400');
     ctx.globalAlpha = 1;
+  });
+  drawMenuButtons();
+}
+
+// ---------- layar tes sentuh ----------
+function drawTouchTest() {
+  baseT(); ctx.fillStyle = '#0a0810'; ctx.fillRect(0, 0, W, H);
+  const cols = ['#f2ad4e', '#62d6cf', '#ff6b6b', '#86d66a', '#b98aff', '#5aa8ff', '#ff8ad0', '#eeeeee'];
+  for (const p of TT.pts.values()) { // tiap jari: lingkaran bernomor
+    const q = toL(p.x, p.y), c = cols[(p.n - 1) % cols.length];
+    ctx.strokeStyle = c; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(q.x, q.y, 36 * U, 0, TAU); ctx.stroke();
+    ctx.fillStyle = c; ctx.font = `700 ${22 * U}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(p.n, q.x, q.y);
+  }
+  for (const i of frames()) inFrame(i, (LW, LH) => {
+    const y0 = LH * .5 + 80 * U, u = U;
+    txt('TES SENTUH', LW / 2, y0, 20 * u, '#ffd27a', 'center', SERIF, '400');
+    txt('Taruh 4 jari sekaligus (2 per pemain) lalu geser-geser.', LW / 2, y0 + 26 * u, 10.5 * u, '#cfc3a8', 'center', 'sans-serif', '500');
+    txt('Jari aktif: ' + TT.pts.size + '    ·    maks bersamaan: ' + TT.max, LW / 2, y0 + 54 * u, 13 * u, '#e8dcc0', 'center', 'sans-serif', '700');
+    txt('Dibatalkan sistem: ' + TT.cancels, LW / 2, y0 + 76 * u, 13 * u, TT.cancels ? '#ff8a70' : '#86d66a', 'center', 'sans-serif', '700');
+    TT.log.forEach((s, k) => txt(s, LW / 2, y0 + 100 * u + k * 15 * u, 9.5 * u, '#ff9a80', 'center', 'sans-serif', '500'));
+    txt(TT.cancels ? 'Ada sentuhan direbut sistem → matikan gestur 3 jari (mis. tangkapan layar) di pengaturan HP.' : 'Kalau semua jari tampil & tidak ada yang dibatalkan, HP sanggup 4 jari.', LW / 2, y0 + 168 * u, 9.5 * u, 'rgba(232,217,176,.75)', 'center', 'sans-serif', '500');
   });
   drawMenuButtons();
 }

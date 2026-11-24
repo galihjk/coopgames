@@ -47,15 +47,26 @@ addEventListener('keyup', e => {
   for (const n of G.solo ? [IN[0]] : [IN[m[0]]]) { if (typeof m[1] === 'number') n.kb[m[1]] = 0; else n.kx[m[1]] = 0; }
 });
 const ptrs = new Map();
+// Tes sentuh: memperlihatkan semua jari di layar & berapa sentuhan yang dibatalkan sistem (pointercancel),
+// untuk membedakan batas jumlah sentuhan HP vs gestur sistem (mis. usap 3 jari = tangkapan layar).
+const TT = { pts: new Map(), max: 0, cancels: 0, downs: 0, log: [] };
+function resetTouchTest() { TT.pts.clear(); TT.max = 0; TT.cancels = 0; TT.downs = 0; TT.log = []; }
 cv.addEventListener('pointerdown', e => {
   e.preventDefault(); Snd.init();
   const q = toL(e.clientX, e.clientY);
+  if (G.mode === 'touchtest') {
+    if (uiTap(q)) return;
+    TT.pts.set(e.pointerId, { x: e.clientX, y: e.clientY, n: ++TT.downs }); TT.max = Math.max(TT.max, TT.pts.size);
+    try { cv.setPointerCapture(e.pointerId); } catch (er) { }
+    return;
+  }
   if (G.mode !== 'play') { uiTap(q); return; }
   if (Math.hypot(q.x - W / 2, q.y - 20 * U) < 26 * U) { togglePause(); return; }
   const a = assignTouch(q);
   if (a) { ptrs.set(e.pointerId, a); try { cv.setPointerCapture(e.pointerId); } catch (er) { } }
 }, { passive: false });
 cv.addEventListener('pointermove', e => {
+  const tp = TT.pts.get(e.pointerId); if (tp) { tp.x = e.clientX; tp.y = e.clientY; return; }
   const a = ptrs.get(e.pointerId); if (!a || a.kind !== 'joy') return;
   const q = toL(e.clientX, e.clientY), j = IN[a.i].joy; if (!j) return;
   j.x = q.x; j.y = q.y;
@@ -67,6 +78,11 @@ cv.addEventListener('pointermove', e => {
   j.dx = dx; j.dy = dy;
 }, { passive: false });
 function endPtr(e) {
+  if (TT.pts.has(e.pointerId)) {
+    const p = TT.pts.get(e.pointerId); TT.pts.delete(e.pointerId);
+    if (e.type === 'pointercancel') { TT.cancels++; TT.log.unshift('jari #' + p.n + ' DIBATALKAN sistem (saat ' + (TT.pts.size + 1) + ' jari di layar)'); TT.log.length = Math.min(TT.log.length, 4); }
+    return;
+  }
   const a = ptrs.get(e.pointerId); if (!a) return; ptrs.delete(e.pointerId);
   if (a.kind === 'joy') IN[a.i].joy = null; else IN[a.i].tb[a.k] = 0;
 }
