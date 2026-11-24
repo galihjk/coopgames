@@ -66,6 +66,9 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
 - **Mode solo:** hanya P1 yang tampil (HUD, kontrol, menu); P2 = bot. Mode 2 pemain: hanya P1 memegang
   menu, P2 cukup memilih warna dan melihat "Menunggu P1…".
 - **Gestur 3 jari:** `pointercancel` saat ≥3 jari → jeda + `drawGestureWarn` (sekali per sesi).
+- **Membangkitkan rekan:** progres (`revT`) hanya menyusut pelan saat penolong menjauh, dan bot yang sedang menolong
+  baru beranjak kalau serangan hampir kena. Mode solo: P1 yang gugur bisa MENYERAH dari layar jeda (`canGiveUp`)
+  → `gameOver()`. Alasannya: dulu bot gagal menolong di arena bos dan pemain hanya bisa menonton bot.
 - **Gelombang cincin (hazard `ring`) bisa diparry/ditahan dari arah mana pun** (`omni` di `hurtPlayer`):
   dulu tak bisa diparry dan menjadi sumber kena terbanyak bagi pemain yang mengandalkan parry, padahal
   guling dihukum oleh proyektil yang masih beterbangan.

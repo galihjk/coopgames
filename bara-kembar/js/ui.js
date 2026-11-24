@@ -91,7 +91,10 @@ function drawHUD(p, LW, LH) {
   let my = base - (bosses.length ? 80 + (bosses.length - 1) * 28 : 34) * u;
   if (p.msg) { const a = clamp(Math.min(p.msg.t * 6, (p.msg.dur - p.msg.t) * 3), 0, 1); ctx.globalAlpha = a; txt(p.msg.text, LW / 2, my, 13 * u, '#fff1d0'); ctx.globalAlpha = 1; my -= 20 * u; }
   if (p.state === 'down') { txt('TUMBANG — tunggu rekanmu (' + Math.ceil(p.downT) + ')', LW / 2, my, 13 * u, '#ff8a70'); my -= 20 * u; }
-  if (p.dead) { txt('Gugur — rekanmu bisa membangkitkanmu di api unggun', LW / 2, my, 12 * u, '#c8b8a8'); my -= 20 * u; }
+  if (p.dead) {
+    txt('Gugur — rekanmu bisa membangkitkanmu di api unggun', LW / 2, my, 12 * u, '#c8b8a8'); my -= 18 * u;
+    if (G.solo) { txt('atau jeda (‖) → MENYERAH untuk bangkit sekarang', LW / 2, my, 10.5 * u, 'rgba(232,217,176,.7)'); my -= 20 * u; }
+  }
   const hintA = G.hintT > 0 ? clamp(G.hintT, 0, 1) : p.swapHint > 0 ? clamp(p.swapHint, 0, 1) : 0;
   if (hintA > 0 && p.alive) drawCallouts(p, LW, base, hintA, G.hintT > 0);
   // banner
@@ -223,7 +226,9 @@ function menuButtons(i) {
   if (G.mode === 'pause') {
     if (G.solo) { // satu pemain: separuh atas layar kosong
       const bw = 120 * u, bh = 44 * u, y = LH * .3 + 30 * u;
-      return [{ id: 'resume', x: LW / 2 - bw - 8 * u, y, w: bw, h: bh, label: 'LANJUT' }, { id: 'quit', x: LW / 2 + 8 * u, y, w: bw, h: bh, label: 'KE JUDUL' }];
+      return [{ id: 'resume', x: LW / 2 - bw - 8 * u, y, w: bw, h: bh, label: 'LANJUT' }, { id: 'quit', x: LW / 2 + 8 * u, y, w: bw, h: bh, label: 'KE JUDUL' },
+        // pemain sudah gugur & tinggal menonton bot: boleh menyerah → bangkit di api unggun terakhir (dihitung kalah)
+        ...(canGiveUp() ? [{ id: 'giveup', x: LW / 2 - 90 * u, y: y + bh + 10 * u, w: 180 * u, h: 38 * u, label: 'MENYERAH', small: true }] : [])];
     }
     // dua pemain: kolom kiri, supaya tidak menutupi petunjuk tombol di kanan
     const bw = 96 * u, bh = 40 * u, x = 12 * u, y = LH / 2 + 44 * u;
@@ -281,6 +286,7 @@ function resetProgress() {
   G.resetArm = null; Object.assign(SAVE, { cleared: [], clearedNormal: [], rec: { easy: newRec(), normal: newRec() } }); saveGame(); G.sel = 0; G.resetDone = G.t; // warna, mode & kesulitan tetap
 }
 function toggleDiff() { SAVE.diff = isEasy() ? 'normal' : 'easy'; saveGame(); }
+const canGiveUp = () => G.solo && L && players[0].dead && players[1].alive;
 function pickLevel(d) { G.sel = (G.sel + d + LEVELS.length) % LEVELS.length; }
 function uiTap(q) {
   for (const i of frames()) {
@@ -302,6 +308,7 @@ function uiTap(q) {
         else if (b.id === 'next') pickLevel(1);
         else if (b.id === 'lvl' || b.id === 'start') startGame(G.sel);
         else if (b.id === 'resume') { G.mode = 'play'; G.gestureWarn = false; }
+        else if (b.id === 'giveup') { G.mode = 'play'; G.gestureWarn = false; gameOver(); }
         else if (b.id === 'quit' || b.id === 'title') { G.mode = 'title'; Snd.music(false); }
         return true;
       }
@@ -342,7 +349,8 @@ function drawPause() {
     if (i === 0 && L && !G.gestureWarn) { // statistik level ini (sesi sekarang) + riwayat tersimpan
       const s = L.stats, a = 'Waktu ' + fmtTime(s.t) + '  ·  kalah ' + s.overs + '×  ·  tumbang ' + s.downs[0] + '/' + s.downs[1];
       const b = 'Total di level ini (' + DIFF_NAME() + '): ' + fmtLong(REC().time[L.idx] || 0) + '  ·  kalah ' + (REC().losses[L.idx] || 0) + '×';
-      if (G.solo) { txt(a, LW / 2, LH * .3 + 92 * U, 11 * U, '#e8dcc0', 'center', 'sans-serif', '600'); txt(b, LW / 2, LH * .3 + 110 * U, 10 * U, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '500'); }
+      const gy = canGiveUp() ? 50 * U : 0; // beri ruang untuk tombol MENYERAH
+      if (G.solo) { txt(a, LW / 2, LH * .3 + 92 * U + gy, 11 * U, '#e8dcc0', 'center', 'sans-serif', '600'); txt(b, LW / 2, LH * .3 + 110 * U + gy, 10 * U, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '500'); }
       else { txt(a, 124 * U, LH / 2 + 16 * U, 10 * U, '#e8dcc0', 'left', 'sans-serif', '600'); txt(b, 124 * U, LH / 2 + 31 * U, 9 * U, 'rgba(232,217,176,.7)', 'left', 'sans-serif', '500'); }
     }
     if (G.solo) txt('JEDA', LW / 2, LH * .3, 30 * U, '#e8d9b0', 'center', SERIF, '400');

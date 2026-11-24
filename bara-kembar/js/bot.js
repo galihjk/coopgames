@@ -235,7 +235,7 @@ function botUpdate(b, h, dt) {
     if (th && th.block && th.t < .6) brain.blockT = Math.max(brain.blockT, .15);
     return;
   }
-  const fleeing = th && th.walk && th.t < 1.0 && (!sword || !th.block || th.t > .25 || b.stam < 25);
+  const fleeing = th && th.walk && th.t < (h.down && dist(b, h) < 60 ? .45 : 1.0) && (!sword || !th.block || th.t > .25 || b.stam < 25); // sedang membangkitkan rekan: bertahan di tempat lebih lama
 
   // bengong sesaat (makin sering kalau kemampuan rendah)
   if (brain.daze <= 0 && Math.random() < (1 - s) * .12 * dt) brain.daze = rand(.4, 1.1);

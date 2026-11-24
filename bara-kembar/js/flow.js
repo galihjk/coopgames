@@ -42,7 +42,7 @@ function updateFlow(dt) {
     const q = players[1 - p.i];
     p.downT -= dt;
     if (q.alive && dist(p, q) < 46) { p.revT += dt; if (Math.random() < .3) part(p.x + rand(-8, 8), p.y + rand(-8, 8), 0, -30, .6, '#fff1c0', 2, true); }
-    else p.revT = Math.max(0, p.revT - dt * .5);
+    else p.revT = Math.max(0, p.revT - dt * .15); // menyusut pelan: penolong yang sebentar menghindar tak mengulang dari nol
     if (p.revT >= 2.2) { revivePlayer(p, .4); msg(q, 'Rekanmu bangkit!', 1.5); }
     else if (p.downT <= 0 && G.mode === 'play') {
       p.down = false; p.dead = true; p.state = 'dead';
