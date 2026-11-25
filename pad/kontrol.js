@@ -10,25 +10,31 @@
 //      onMasuk(p) {},  onKembali(p) {},      // pemain baru / pemain lama tersambung lagi
 //      onKeluar(p) {},                       // sambungan ditutup
 //      onDiam(p) {},   onAktif(p) {},        // tak ada data >0,4 dtk (input dinetralkan) / data datang lagi
-//      onAksi(p, idKontrol, arah) {},        // tombol DITEKAN, atau zona "arah" DILEPAS
-//      onLepas(p, idTombol) {},              // tombol dilepas (mis. akhir tangkisan)
+//      onTekan(p, id) {},                    // zona 'arah' atau tombol MULAI ditekan (mis. animasi isi tenaga)
+//      onAksi(p, id, arah, info) {},         // tombol DITEKAN, atau zona 'arah' DILEPAS
+//      onLepas(p, id, info) {},              // tombol dilepas (mis. akhir tahan)
 //      onMencoba(idPerangkat, iceState) {},  onGalat(err) {},
 //    });
 //    // tiap frame: baca p.input untuk setiap p di pad.pemain (Map)
-//    //   zona 'stik' → p.input.gerak = {x, y}            (panjang 0..1)
-//    //   zona 'arah' → p.input.serang = {tahan, x, y}    (x,y = arah bidik selama ditahan, 0 bila belum digeser)
-//    //   tombol      → p.input.tangkis = {tahan}
+//    //   zona 'stik' → p.input[id] = {x, y}                  (panjang 0..1)
+//    //   zona 'arah' → p.input[id] = {tahan, x, y, lama}     (x,y = arah bidik selama ditahan, 0 bila belum digeser)
+//    //   tombol      → p.input[id] = {tahan, lama}
+//    //   lama = ms sejak mulai ditekan (diukur HP, diperbarui ±10×/dtk), 0 bila tidak ditahan
 //    pad.getar(p, pola); pad.getarSemua(pola); pad.gantiSusunan(susunanBaru);
 //
 //  Data pemain p: {id, nomor, warna, tersambung, aktif, input, ping:{akhir,rata,maks,lonjakan,n}, paketPerDetik, telat}
 //  - nomor & warna tetap untuk HP yang sama (ID perangkat), juga setelah browser HP ditutup lalu
 //    QR dipindai lagi. Slot tidak pernah dihapus; game yang memutuskan apa arti pemain terputus.
 //  - onAksi: arah = {x,y} vektor satuan, atau null ("pakai arah hadap karakter").
-//    Tombol tap memicu SAAT DITEKAN (lebih cepat); zona 'arah' memicu SAAT DILEPAS (bidikan final).
+//    info = {arah, durasi, geser}. durasi = lama ditekan (ms, DIUKUR DI HP sehingga tidak terpengaruh
+//    jaringan); geser = jarak geser terjauh jempol (relatif sisi pendek layar HP, 0..±1).
+//    Untuk tombol, onAksi datang saat ditekan (durasi 0); durasinya ada di onLepas.
+//  - CoopPad.jenis(info, batasMs=250) → 'tap' | 'tahan' | 'cepat-berarah' | 'bidik'. Ambangnya
+//    ditentukan game. Game bebas memakai info mentahnya sendiri (mis. tenaga = durasi).
 //
 //  SUSUNAN (dikirim ke HP saat bergabung; HP menggambar kontrol sesuai susunan ini):
 //    { nama, orientasi:'mendatar',
-//      zona:   [ {id, jenis:'stik'|'arah', area:[x0,y0,x1,y1], label, warna} ],
+//      zona:   [ {id, jenis:'stik'|'arah', area:[x0,y0,x1,y1], label, warna, petunjuk?} ],
 //      tombol: [ {id, label, warna, area:[x0,y0,x1,y1] atau [[...],[...]] } ] }
 //    area = kotak relatif 0..1 dari bidang kontrol HP (di bawah bilah status); tombol boleh
 //    terdiri dari beberapa kotak (mis. bentuk L). Sentuhan dicek ke tombol dulu, lalu ke zona.
@@ -37,8 +43,10 @@
 //    bukan titik kecil, karena pemain menatap layar komputer, bukan HP.
 //
 //  Format pesan HP → layar (diurus file ini & pad/index.html, game tidak perlu tahu):
-//    {t:'s', v:versiSusunan, q:nomorUrut, z:[...per zona], b:[[tahan, jumlahTekan, jumlahLepas] per tombol]}
-//      zona stik: [x, y];  zona arah: [tahan, bidikX, bidikY, jumlahLepas, lepasX, lepasY]
+//    {t:'s', v:versiSusunan, q:nomorUrut, z:[...per zona], b:[...per tombol]}
+//      zona stik: [x, y]
+//      zona arah: [tahan, bidikX, bidikY, jumlahLepas, lepasX, lepasY, jumlahTekan, durasiLepas, geserLepas, lama]
+//      tombol   : [tahan, jumlahTekan, jumlahLepas, durasiLepas, lama]
 //    Aksi dibawa sebagai PENGHITUNG, jadi tidak hilang walau ada paket jatuh. Paket dengan nomor
 //    urut lebih kecil dari yang sudah diterima dibuang (kanal tanpa urutan).
 //  Layar → HP: {t:'tata', v, susunan}, {t:'i', nomor, warna, rtt}, {t:'v', pola}.
@@ -50,26 +58,21 @@ const CoopPad = (() => {
 
   // TATA LETAK (bentuk area) terpisah dari ISI (id, label, warna) yang ditentukan tiap game.
   const TATA = {
-    // Tata letak "aksi" (rancangan pemilik, uji HP 25-11-2026), HP mendatar:
-    //   ┌──────────────┬──────────────┬──────┐
-    //   │              │              │kanan │   gerak      = joystick mengambang (separuh kiri)
-    //   │              │     arah     │ atas │   arah       = aksi berarah mengambang
-    //   │    gerak     │              ├──────┤   kananAtas, kiriBawah, kananBawah = tombol tanpa arah
-    //   │              ├─────────┬────┘      │   (tekan/tahan/lepas). kananBawah berbentuk L, paling
-    //   │              │kiriBawah│ kananBawah│   dekat jempol → untuk aksi yang paling sering dipakai.
-    //   └──────────────┴─────────┴───────────┘
-    // Isi tiap slot: {id, label, warna}. Slot tombol yang tidak diisi dibiarkan kosong.
-    //   CoopPad.TATA.aksi({ gerak:{id:'gerak',label:'GERAK'}, arah:{id:'tembak',label:'TEMBAK',warna:'#f80'},
-    //                       kananBawah:{id:'lompat',label:'LOMPAT',warna:'#7e7'} })
+    // Tata letak "aksi" (rancangan pemilik, 25-11-2026), HP mendatar:
+    //   ┌──────────────────┬──────────────────────┬───────────┐
+    //   │                  │      arahAtas        │ tombolAtas│   gerak = joystick mengambang
+    //   │      gerak       ├──────────────────────┼───────────┤   arahAtas/arahBawah = zona berarah mengambang
+    //   │                  │      arahBawah       │tombolBawah│   tombolAtas/tombolBawah = tanpa arah
+    //   └──────────────────┴──────────────────────┴───────────┘   (tekan/tahan/lepas)
+    // Isi tiap slot: {id, label, warna, petunjuk?}. Slot yang tidak diisi dibiarkan kosong.
+    //   CoopPad.TATA.aksi({ gerak:{id:'gerak',label:'GERAK'}, arahAtas:{id:'tembak',label:'TEMBAK'},
+    //                       tombolBawah:{id:'lompat',label:'LOMPAT'} })
     aksi(isi) {
-      const AREA = {
-        kananAtas: [.875, 0, 1, .5],
-        kiriBawah: [.5, .75, .75, 1],
-        kananBawah: [[.75, .75, 1, 1], [.875, .5, 1, .75]],
-      };
+      const ZONA = { arahAtas: [.5, 0, .9, .5], arahBawah: [.5, .5, .9, 1] };
+      const TOMBOL = { tombolAtas: [.9, 0, 1, .5], tombolBawah: [.9, .5, 1, 1] };
       const zona = [{ jenis: 'stik', area: [0, 0, .5, 1], warna: '#9aa3c7', ...isi.gerak }];
-      if (isi.arah) zona.push({ jenis: 'arah', area: [.5, 0, .875, .75], warna: '#ff7a5c', ...isi.arah });
-      const tombol = Object.keys(AREA).filter(k => isi[k]).map(k => ({ warna: '#9aa3c7', ...isi[k], area: AREA[k] }));
+      for (const k of Object.keys(ZONA)) if (isi[k]) zona.push({ jenis: 'arah', warna: '#ff7a5c', ...isi[k], area: ZONA[k] });
+      const tombol = Object.keys(TOMBOL).filter(k => isi[k]).map(k => ({ warna: '#9aa3c7', ...isi[k], area: TOMBOL[k] }));
       return { nama: isi.nama || 'aksi', orientasi: 'mendatar', zona, tombol };
     },
   };
@@ -78,17 +81,25 @@ const CoopPad = (() => {
   const SUSUNAN = {
     aksi: TATA.aksi({
       gerak: { id: 'gerak', label: 'GERAK' },
-      arah: { id: 'serang', label: 'SERANG', warna: '#ff7a5c' },
-      kananAtas: { id: 'skill', label: 'SKILL', warna: '#b48cff' },
-      kiriBawah: { id: 'tangkis', label: 'TANGKIS', warna: '#4fc3ff' },
-      kananBawah: { id: 'guling', label: 'GULING', warna: '#7ee0a8' },
+      arahAtas: { id: 'ranged', label: 'RANGED', warna: '#ff7a5c', petunjuk: 'ketuk · tahan = isi · geser = bidik' },
+      arahBawah: { id: 'shield', label: 'SHIELD', warna: '#4fc3ff', petunjuk: 'tahan · geser = arah perisai' },
+      tombolAtas: { id: 'melee', label: 'MELEE', warna: '#ffc34d' },
+      tombolBawah: { id: 'dash', label: 'DASH', warna: '#7ee0a8' },
     }),
   };
 
+  // Penggolongan bantu. Game boleh memakai ambang sendiri atau langsung membaca info.durasi/geser.
+  function jenis(info, batasMs = 250) {
+    if (!info) return 'tap';
+    const pendek = info.durasi < batasMs;
+    if (info.arah) return pendek ? 'cepat-berarah' : 'bidik';
+    return pendek ? 'tap' : 'tahan';
+  }
+
   function inputNetral(s) {
     const inp = {};
-    for (const z of s.zona) inp[z.id] = z.jenis === 'stik' ? { x: 0, y: 0 } : { tahan: false, x: 0, y: 0 };
-    for (const t of s.tombol) inp[t.id] = { tahan: false };
+    for (const z of s.zona) inp[z.id] = z.jenis === 'stik' ? { x: 0, y: 0 } : { tahan: false, x: 0, y: 0, lama: 0 };
+    for (const t of s.tombol) inp[t.id] = { tahan: false, lama: 0 };
     return inp;
   }
 
@@ -143,23 +154,30 @@ const CoopPad = (() => {
         if (d.v !== versi) return;               // pesan dari susunan lama
         if (d.q <= p._q) { p.telat++; return; }  // paket lama yang datang belakangan
         p._q = d.q;
-        const awal = !p._hitZ;
+        const awal = !p._hitZ;                   // paket pertama sambungan ini: hanya catat penghitung
         if (awal) { p._hitZ = []; p._hitB = []; }
         susunan.zona.forEach((z, i) => {
           const v = d.z[i]; if (!v) return;
           const inp = p.input[z.id];
           if (z.jenis === 'stik') { inp.x = v[0]; inp.y = v[1]; return; }
-          inp.tahan = !!v[0]; inp.x = v[1]; inp.y = v[2];
-          if (!awal && v[3] > p._hitZ[i]) panggil('onAksi', p, z.id, (v[4] || v[5]) ? { x: v[4], y: v[5] } : null);
-          p._hitZ[i] = v[3];
+          const [tahan, ax, ay, nLepas, lx, ly, nTekan, durasi, geser, lama] = v;
+          inp.tahan = !!tahan; inp.x = ax; inp.y = ay; inp.lama = lama || 0;
+          const h = p._hitZ[i] || [nTekan, nLepas];
+          if (!awal && nTekan > h[0]) panggil('onTekan', p, z.id);
+          if (!awal && nLepas > h[1]) {
+            const arah = (lx || ly) ? { x: lx, y: ly } : null;
+            panggil('onAksi', p, z.id, arah, { arah, durasi: durasi || 0, geser: geser || 0 });
+          }
+          p._hitZ[i] = [nTekan, nLepas];
         });
         susunan.tombol.forEach((t, i) => {
           const v = d.b[i]; if (!v) return;
-          p.input[t.id].tahan = !!v[0];
-          const lama = p._hitB[i];
-          if (!awal && v[1] > lama[0]) panggil('onAksi', p, t.id, null);
-          if (!awal && v[2] > lama[1]) panggil('onLepas', p, t.id);
-          p._hitB[i] = [v[1], v[2]];
+          const [tahan, nTekan, nLepas, durasi, lama] = v;
+          p.input[t.id].tahan = !!tahan; p.input[t.id].lama = lama || 0;
+          const h = p._hitB[i] || [nTekan, nLepas];
+          if (!awal && nTekan > h[0]) { panggil('onTekan', p, t.id); panggil('onAksi', p, t.id, null, { arah: null, durasi: 0, geser: 0 }); }
+          if (!awal && nLepas > h[1]) panggil('onLepas', p, t.id, { arah: null, durasi: durasi || 0, geser: 0 });
+          p._hitB[i] = [nTekan, nLepas];
         });
       },
     });
@@ -190,5 +208,5 @@ const CoopPad = (() => {
     };
   }
 
-  return { host, TATA, SUSUNAN, WARNA };
+  return { host, jenis, TATA, SUSUNAN, WARNA };
 })();

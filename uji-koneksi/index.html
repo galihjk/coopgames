@@ -51,7 +51,7 @@
     <p><b>Ping</b> = waktu bolak-balik layar → HP → layar. Jeda kontrol kira-kira separuhnya.</p>
     <p><b>Terburuk</b> dan <b>lonjakan</b> dihitung dari 30 detik terakhir. Lonjakan = ping di atas 100 ms. Untuk game aksi, yang penting lonjakannya jarang, bukan hanya rata-ratanya kecil.</p>
     <p><b>Paket/dtk</b> = kiriman HP per detik (±60 saat jempol bergerak, ±10 saat diam). <b>Telat</b> = paket yang tiba setelah paket yang lebih baru (dibuang).</p>
-    <p>Di arena: separuh kiri HP = gerak. Separuh kanan: area besar = SERANG (ketuk untuk menyerang ke arah hadap, atau tahan dan geser untuk membidik, lepas = serang). Di pinggirnya ada SKILL (kanan atas), TANGKIS (kiri bawah, tahan = perisai), dan GULING (kanan bawah). Coba kenai boneka sasaran.</p>
+    <p>Di arena (contoh isi kontrol): separuh kiri HP = gerak. Kanan atas = RANGED berarah: ketuk = tembakan cepat ke arah hadap, geser cepat = tembakan cepat berarah, tahan = isi tenaga (tembakan makin besar), tahan + geser = bidik. Kanan bawah = SHIELD berarah: tahan = perisai, geser = arah perisai. Pinggir kanan: MELEE (atas) dan DASH (bawah). Jenis tiap aksi dan lama tekannya tampil di "Aksi terakhir".</p>
   </details>
 </aside>
 
@@ -64,7 +64,11 @@
 // =====================================================================
 //  UJI KONEKSI (layar komputer) — juga CONTOH PEMAKAIAN CoopPad untuk game "Layar + HP".
 //  Satu karakter per HP. Input dibaca dari p.input tiap frame; aksi datang lewat onAksi.
-//  Aksi: serang = tebasan busur (berarah), guling = dorongan cepat, skill = proyektil.
+//  Contoh isi kontrol (CoopPad.SUSUNAN.aksi):
+//    ranged = proyektil; jenisnya dari CoopPad.jenis(info): tap/cepat-berarah = tembakan cepat,
+//             tahan/bidik = tembakan berisi tenaga (makin lama ditahan makin besar, maks 1,2 dtk)
+//    shield = perisai selama ditahan, arahnya mengikuti geseran (atau arah hadap), gerak melambat
+//    melee  = tebasan busur ke arah hadap;  dash = dorongan cepat ke arah hadap
 //  Pemain terputus/diam: karakter pudar dan diam (CoopPad sudah menetralkan inputnya).
 // =====================================================================
 const $ = id => document.getElementById(id);
@@ -103,21 +107,28 @@ const pad = CoopPad.host({
   onKeluar(p) { $('status').textContent = `P${p.nomor} terputus.`; },
   onDiam(p) { $('status').textContent = `P${p.nomor} tidak mengirim data (layar HP mati / sinyal hilang?).`; },
   onAktif(p) { $('status').textContent = `P${p.nomor} aktif lagi.`; },
-  onAksi(p, id, arah) {
+  onAksi(p, id, arah, info) {
     const k = kar(p);
+    if (id === 'shield') return; // perisai dibaca dari p.input.shield setiap frame, bukan saat dilepas
+    const j = id === 'ranged' ? CoopPad.jenis(info, 250) : 'tekan';
     k.aksi[id] = (k.aksi[id] || 0) + 1;
+    k.terakhir = id === 'ranged' ? `${id}: ${j} · ${info.durasi} ms · geser ${info.geser}` : id;
     const dx = arah ? arah.x : k.fx, dy = arah ? arah.y : k.fy; // tanpa bidikan: ke arah hadap
     k.fx = dx; k.fy = dy;
-    if (id === 'serang') {
-      efek.push({ jenis: 'tebas', x: k.x, y: k.y, a: Math.atan2(dy, dx), t: .22, warna: '#ff7a5c' });
+    if (id === 'melee') {
+      efek.push({ jenis: 'tebas', x: k.x, y: k.y, a: Math.atan2(dy, dx), t: .22, warna: '#ffc34d' });
       for (const b of boneka) {
         const ex = b.x - k.x, ey = b.y - k.y, d = Math.hypot(ex, ey);
         if (d < 78 + b.r && (ex * dx + ey * dy) / (d || 1) > .5) kenai(b, p);
       }
-    } else if (id === 'guling') { k.guling = .22; k.gx = dx; k.gy = dy; }
-    else if (id === 'skill') peluru.push({ x: k.x + dx * 20, y: k.y + dy * 20, vx: dx * 560, vy: dy * 560, hidup: 1.1, p });
+    } else if (id === 'dash') { k.guling = .22; k.gx = dx; k.gy = dy; }
+    else if (id === 'ranged') {
+      const tenaga = (j === 'tahan' || j === 'bidik') ? Math.min(1, info.durasi / 1200) : 0; // 0..1
+      peluru.push({ x: k.x + dx * 20, y: k.y + dy * 20, vx: dx * 560, vy: dy * 560, hidup: 1.1, r: 5 + tenaga * 11, p });
+    }
   },
-  onLepas(p, id) { const k = kar(p); k.aksi[id + ' lepas'] = (k.aksi[id + ' lepas'] || 0) + 1; },
+  onTekan(p, id) { const k = kar(p); k.ditekan = (k.ditekan || 0) + 1; }, // mis. mulai animasi isi tenaga
+  onLepas(p, id, info) { const k = kar(p); k.terakhir = `${id} dilepas · ditahan ${info.durasi} ms`; },
   onGalat(err) { $('status').textContent = 'Galat koneksi: ' + (err.type || err) + '. Muat ulang halaman.'; },
 });
 $('getar').onclick = () => pad.getarSemua([60, 40, 60]);
@@ -129,7 +140,7 @@ function update(dt) {
   for (const p of pad.pemain.values()) {
     const k = kar(p), g = p.input.gerak, m = Math.hypot(g.x, g.y);
     if (m > .2 && !k.guling) { k.fx = g.x / m; k.fy = g.y / m; } // arah hadap langsung mengikuti joystick
-    const lambat = p.input.tangkis && p.input.tangkis.tahan ? .4 : 1; // menangkis = bergerak pelan
+    const lambat = p.input.shield && p.input.shield.tahan ? .4 : 1; // berperisai = bergerak pelan
     let vx = g.x * 230 * lambat, vy = g.y * 230 * lambat;
     if (k.guling > 0) { k.guling = Math.max(0, k.guling - dt); vx = k.gx * 720; vy = k.gy * 720; efek.push({ jenis: 'bayang', x: k.x, y: k.y, t: .18, warna: p.warna }); }
     k.x = Math.max(16, Math.min(W - 16, k.x + vx * dt));
@@ -137,7 +148,7 @@ function update(dt) {
   }
   for (const s of peluru) {
     s.x += s.vx * dt; s.y += s.vy * dt; s.hidup -= dt;
-    for (const b of boneka) if (s.hidup > 0 && Math.hypot(s.x - b.x, s.y - b.y) < b.r + 6) { kenai(b, s.p); s.hidup = 0; }
+    for (const b of boneka) if (s.hidup > 0 && Math.hypot(s.x - b.x, s.y - b.y) < b.r + s.r) { kenai(b, s.p); s.hidup = 0; }
   }
   for (let i = peluru.length - 1; i >= 0; i--) if (peluru[i].hidup <= 0) peluru.splice(i, 1);
   for (const e of efek) e.t -= dt;
@@ -164,17 +175,18 @@ function gambar() {
     } else { ctx.fillStyle = e.warna; ctx.globalAlpha *= .35; ctx.beginPath(); ctx.arc(e.x, e.y, 14, 0, 7); ctx.fill(); }
     ctx.globalAlpha = 1;
   }
-  for (const s of peluru) { ctx.fillStyle = '#b48cff'; ctx.beginPath(); ctx.arc(s.x, s.y, 6, 0, 7); ctx.fill(); }
+  for (const s of peluru) { ctx.fillStyle = '#ff7a5c'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill(); }
   for (const p of pad.pemain.values()) {
-    const k = kar(p), sr = p.input.serang;
+    const k = kar(p), rg = p.input.ranged, sh = p.input.shield;
     ctx.globalAlpha = p.tersambung && p.aktif ? 1 : .3;
-    if (sr.tahan) { // bidikan serang yang sedang ditahan
-      ctx.strokeStyle = '#ff7a5c'; ctx.lineWidth = 3;
-      if (sr.x || sr.y) { ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.moveTo(k.x, k.y); ctx.lineTo(k.x + sr.x * 150, k.y + sr.y * 150); ctx.stroke(); ctx.setLineDash([]); }
-      else { ctx.beginPath(); ctx.arc(k.x, k.y, 24, 0, 7); ctx.stroke(); }
+    if (rg.tahan) { // RANGED ditahan: lingkar tenaga membesar sesuai lama tekan, garis bidik bila digeser
+      const tenaga = Math.min(1, rg.lama / 1200);
+      ctx.strokeStyle = '#ff7a5c'; ctx.lineWidth = 2 + tenaga * 4;
+      ctx.beginPath(); ctx.arc(k.x, k.y, 20 + tenaga * 14, -Math.PI / 2, -Math.PI / 2 + tenaga * Math.PI * 2); ctx.stroke();
+      if (rg.x || rg.y) { ctx.lineWidth = 3; ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.moveTo(k.x, k.y); ctx.lineTo(k.x + rg.x * 150, k.y + rg.y * 150); ctx.stroke(); ctx.setLineDash([]); }
     }
-    if (p.input.tangkis && p.input.tangkis.tahan) { // perisai di depan selama TANGKIS ditahan
-      const a = Math.atan2(k.fy, k.fx);
+    if (sh.tahan) { // SHIELD: perisai ke arah geseran, atau ke arah hadap bila belum digeser
+      const a = (sh.x || sh.y) ? Math.atan2(sh.y, sh.x) : Math.atan2(k.fy, k.fx);
       ctx.strokeStyle = '#4fc3ff'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(k.x, k.y, 26, a - .9, a + .9); ctx.stroke();
     }
     ctx.fillStyle = p.warna; ctx.beginPath(); ctx.arc(k.x, k.y, 15, 0, 7); ctx.fill();
@@ -202,7 +214,8 @@ function perbaruiDaftar() {
       <span>Terburuk 30 dtk</span><b class="${kelas(g.maks)}">${f(g.maks)}</b>
       <span>Lonjakan &gt;100 ms</span><b class="${g.lonjakan ? 'waspada' : 'baik'}">${g.lonjakan} dari ${g.n}</b>
       <span>Paket/dtk · telat</span><b>${p.paketPerDetik} · ${p.telat}</b>
-      <span>Aksi diterima</span><b>${aksi}</b></div></div>`);
+      <span>Aksi diterima</span><b>${aksi}</b>
+      <span>Aksi terakhir</span><b>${k.terakhir || '-'}</b></div></div>`);
   }
   $('daftar').innerHTML = html.join('');
   document.body.classList.toggle('ada-pemain', pad.pemain.size > 0);

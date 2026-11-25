@@ -22,10 +22,17 @@ Contoh pemakaian lengkap: `../uji-koneksi/index.html` (±200 baris).
    jeda, bot mengambil alih, atau karakter diam. Itu keputusan game. Input sudah dinetralkan
    otomatis oleh `kontrol.js`.
 5. Susunan kontrol: **tata letak dan isi dipisah.** Pakai tata letak yang ada, lalu isi slotnya
-   dengan aksi game sendiri, mis. `CoopPad.TATA.aksi({ gerak:{...}, arah:{...}, kananAtas:{...},
-   kiriBawah:{...}, kananBawah:{...} })`. Slot tombol boleh dikosongkan.
-   `CoopPad.SUSUNAN.aksi` (SERANG/SKILL/TANGKIS/GULING) **hanya contoh pengisian**, jangan dianggap
-   aturan. Bentuk area di luar tata letak yang ada boleh dibuat langsung dengan format di
+   dengan aksi game sendiri, mis. `CoopPad.TATA.aksi({ gerak:{...}, arahAtas:{...}, arahBawah:{...},
+   tombolAtas:{...}, tombolBawah:{...} })`. Slot boleh dikosongkan.
+   `CoopPad.SUSUNAN.aksi` (RANGED/SHIELD/MELEE/DASH) **hanya contoh pengisian**, jangan dianggap
+   aturan.
+6. Jenis serangan dari satu kontrol: `onAksi(p, id, arah, info)` membawa `info = {arah, durasi, geser}`.
+   `durasi` diukur di HP, jadi tidak terpengaruh jaringan. `CoopPad.jenis(info, batasMs)` memberi
+   `'tap' | 'tahan' | 'cepat-berarah' | 'bidik'`. Untuk animasi isi tenaga: `onTekan` +
+   `p.input[id].lama`. Contohnya ada di RANGED pada `uji-koneksi`.
+   Batasan: di zona berarah, "tahan tanpa arah" dan "awal membidik" sama sampai jempol bergeser.
+   Aksi yang harus aktif *selama* ditahan tanpa menunggu arah (mis. perisai) sebaiknya diberi zona
+   atau tombol sendiri. Bentuk area di luar tata letak yang ada boleh dibuat langsung dengan format di
    `kontrol.js`; kalau berguna untuk game lain, jadikan tata letak baru di `CoopPad.TATA`.
    Kalau butuh jenis kontrol baru (mis. slider atau tampilan pribadi per pemain untuk game
    asimetris), tambahkan di `index.html` + `kontrol.js` sebagai jenis zona/tombol baru, jangan
@@ -37,9 +44,9 @@ Contoh pemakaian lengkap: `../uji-koneksi/index.html` (±200 baris).
   (mis. SKILL di tengah atas) terasa terlalu jauh.
   - Zona (`stik`/`arah`) **mengambang**: titik jempol mendarat di dalam area = pusat lingkaran.
   - Tombol = **area besar di pinggir** yang bisa ditemukan dengan meraba. Boleh berbentuk L (beberapa kotak).
-  - Tata letak `aksi` adalah rancangan pemilik: separuh kiri gerak; separuh kanan = area aksi
-    berarah yang dikelilingi tiga tombol (kanan atas, kiri bawah, kanan bawah berbentuk L).
-    Isi tiap slot ditentukan per game.
+  - Tata letak `aksi` adalah rancangan pemilik (25-11-2026): separuh kiri gerak; separuh kanan =
+    dua zona berarah bertumpuk (atas & bawah), masing-masing dengan satu tombol tanpa arah di
+    pinggir kanannya. Isi tiap slot ditentukan per game.
 - **Tombol mengirim tekan, tahan, dan lepas.** `onAksi` saat ditekan (lebih cepat), `onLepas` saat
   dilepas, dan `p.input[id].tahan` selama ditahan (mis. tangkisan). Zona `arah` memicu `onAksi` saat
   dilepas, karena bidikannya baru final saat itu.
@@ -76,5 +83,5 @@ Skrip uji disimpan di scratchpad, bukan di repo.
    memakai `config:{iceServers:[], iceTransportPolicy:'relay'}`.
 
 ## Belum diuji di HP sungguhan
-- Susunan `aksi` versi area (SERANG dikelilingi SKILL/TANGKIS/GULING).
+- Tata letak `aksi` versi dua zona berarah (RANGED/SHIELD + MELEE/DASH), termasuk rasa isi tenaga.
 - Menutup browser HP lalu memindai lagi, dan memuat ulang halaman layar, di jaringan sungguhan.

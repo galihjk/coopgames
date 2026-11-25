@@ -84,8 +84,10 @@ const luas = a => (a[2] - a[0]) * (a[3] - a[1]);
 
 function pasangTata(tata) {
   st.tata = tata;
-  st.zona = tata.susunan.zona.map(() => ({ id: null, ox: 0, oy: 0, x: 0, y: 0, ax: 0, ay: 0, c: 0, lx: 0, ly: 0 }));
-  st.tombol = tata.susunan.tombol.map(() => ({ id: null, c: 0, l: 0 })); // c = jumlah tekan, l = jumlah lepas
+  // zona: c = jumlah lepas, m = jumlah tekan, t0 = waktu mulai, g = geser terjauh, ld/lg = durasi & geser saat lepas terakhir
+  st.zona = tata.susunan.zona.map(() => ({ id: null, ox: 0, oy: 0, x: 0, y: 0, ax: 0, ay: 0, c: 0, lx: 0, ly: 0, m: 0, t0: 0, g: 0, ld: 0, lg: 0 }));
+  // tombol: c = jumlah tekan, l = jumlah lepas, ld = durasi tahan terakhir
+  st.tombol = tata.susunan.tombol.map(() => ({ id: null, c: 0, l: 0, t0: 0, ld: 0 }));
   st.kotor = true;
 }
 
@@ -100,14 +102,14 @@ cv.addEventListener('pointerdown', e => {
   const i = tombolDi(x, y);
   if (i >= 0) {
     const b = st.tombol[i]; if (b.id !== null) return;
-    b.id = e.pointerId; b.c++;   // tombol memicu saat ditekan
+    b.id = e.pointerId; b.c++; b.t0 = performance.now();   // tombol memicu saat ditekan
     getar(12);
   } else {
     const zi = zonaDi(x, y);
     if (zi < 0) return;
     const z = st.zona[zi]; if (z.id !== null) return;
-    Object.assign(z, { id: e.pointerId, ox: x, oy: y, x, y, ax: 0, ay: 0 });
-    if (sus().zona[zi].jenis === 'arah') getar(10);
+    Object.assign(z, { id: e.pointerId, ox: x, oy: y, x, y, ax: 0, ay: 0, t0: performance.now(), g: 0 });
+    if (sus().zona[zi].jenis === 'arah') { z.m++; getar(10); }
   }
   st.kotor = true;
   try { cv.setPointerCapture(e.pointerId); } catch (err) { /* sebagian browser menolak; tidak wajib */ }
@@ -119,6 +121,7 @@ cv.addEventListener('pointermove', e => {
     z.x = e.clientX; z.y = e.clientY; st.kotor = true;
     if (zs.jenis !== 'arah') return;
     const dx = z.x - z.ox, dy = z.y - z.oy, d = Math.hypot(dx, dy);
+    z.g = Math.max(z.g, d / U);
     if (d > .045 * U) { z.ax = dx / d; z.ay = dy / d; } else if (d < .02 * U) { z.ax = z.ay = 0; } // kembali ke tengah = batal bidik
   });
 });
@@ -127,10 +130,14 @@ function lepas(e, batal) {
   sus().zona.forEach((zs, i) => {
     const z = st.zona[i]; if (z.id !== e.pointerId) return;
     z.id = null;
-    if (zs.jenis === 'arah' && !batal) { z.c++; z.lx = z.ax; z.ly = z.ay; } // pointercancel (gestur sistem) tidak memicu aksi
+    if (zs.jenis === 'arah' && !batal) { // pointercancel (gestur sistem) tidak memicu aksi
+      z.c++; z.lx = z.ax; z.ly = z.ay; z.ld = Math.round(performance.now() - z.t0); z.lg = z.g;
+    }
     z.ax = z.ay = 0; st.kotor = true;
   });
-  for (const b of st.tombol) if (b.id === e.pointerId) { b.id = null; b.l++; st.kotor = true; } // lepas selalu dihitung (juga saat batal) agar "tahan" di game berakhir
+  for (const b of st.tombol) if (b.id === e.pointerId) { // lepas selalu dihitung (juga saat batal) agar "tahan" di game berakhir
+    b.id = null; b.l++; b.ld = Math.round(performance.now() - b.t0); st.kotor = true;
+  }
 }
 cv.addEventListener('pointerup', e => lepas(e, false));
 cv.addEventListener('pointercancel', e => lepas(e, true));
@@ -150,9 +157,10 @@ function kirimStatus(now) {
   const z = sus().zona.map((zs, i) => {
     const s = st.zona[i];
     if (zs.jenis === 'stik') return arahStik(s).map(r3);
-    return [s.id !== null ? 1 : 0, r3(s.ax), r3(s.ay), s.c, r3(s.lx), r3(s.ly)];
+    const lama = s.id !== null ? Math.round(now - s.t0) : 0;
+    return [s.id !== null ? 1 : 0, r3(s.ax), r3(s.ay), s.c, r3(s.lx), r3(s.ly), s.m, s.ld, r3(s.lg), lama];
   });
-  const b = st.tombol.map(t => [t.id !== null ? 1 : 0, t.c, t.l]);
+  const b = st.tombol.map(t => [t.id !== null ? 1 : 0, t.c, t.l, t.ld, t.id !== null ? Math.round(now - t.t0) : 0]);
   if (net.kirim({ t: 's', v: st.tata.v, q: ++st.q, z, b })) { st.kotor = false; st.kirimTerakhir = now; }
 }
 function getar(pola) { try { navigator.vibrate && navigator.vibrate(pola); } catch (e) { /* tidak didukung */ } }
@@ -258,7 +266,7 @@ function gambarKontrol(warnaPemain) {
       const p = pusat(zs.area);
       ctx.setLineDash([6, 8]); lingkaran(p.x, p.y, R, warna, null, .3, 2); ctx.setLineDash([]);
       teks(zs.label, p.x, p.y - 8, 14, warna);
-      teks(zs.jenis === 'arah' ? 'ketuk · geser = bidik' : 'sentuh & geser', p.x, p.y + 12, 11, '#9aa3c7', 'center', 400);
+      teks(zs.petunjuk || (zs.jenis === 'arah' ? 'ketuk · geser = bidik' : 'sentuh & geser'), p.x, p.y + 12, 11, '#9aa3c7', 'center', 400);
     }
   });
 }
