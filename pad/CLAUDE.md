@@ -21,17 +21,28 @@ Contoh pemakaian lengkap: `../uji-koneksi/index.html` (±200 baris).
 4. Tentukan aturan saat pemain terputus atau diam (`onKeluar`, `onDiam`, `p.tersambung`, `p.aktif`):
    jeda, bot mengambil alih, atau karakter diam. Itu keputusan game. Input sudah dinetralkan
    otomatis oleh `kontrol.js`.
-5. Susunan kontrol: pakai `CoopPad.SUSUNAN.aksi`, atau buat sendiri dengan format yang dijelaskan di
-   `kontrol.js`. Susunan baru yang berguna untuk game lain sebaiknya ditambahkan sebagai preset.
+5. Susunan kontrol: **tata letak dan isi dipisah.** Pakai tata letak yang ada, lalu isi slotnya
+   dengan aksi game sendiri, mis. `CoopPad.TATA.aksi({ gerak:{...}, arah:{...}, kananAtas:{...},
+   kiriBawah:{...}, kananBawah:{...} })`. Slot tombol boleh dikosongkan.
+   `CoopPad.SUSUNAN.aksi` (SERANG/SKILL/TANGKIS/GULING) **hanya contoh pengisian**, jangan dianggap
+   aturan. Bentuk area di luar tata letak yang ada boleh dibuat langsung dengan format di
+   `kontrol.js`; kalau berguna untuk game lain, jadikan tata letak baru di `CoopPad.TATA`.
    Kalau butuh jenis kontrol baru (mis. slider atau tampilan pribadi per pemain untuk game
    asimetris), tambahkan di `index.html` + `kontrol.js` sebagai jenis zona/tombol baru, jangan
    membuat halaman HP terpisah.
 
 ## Keputusan desain (jangan diubah tanpa alasan)
-- **Kontrol mengambang:** zona kiri/kanan, titik jempol mendarat = pusat lingkaran. Hasil uji HP:
-  saat mata menatap layar komputer, tombol kecil dengan posisi tetap sulit dikenai. Tombol tap
-  dibuat sedikit dan **saling berjauhan**.
-- **Tombol tap memicu saat ditekan.** Zona `arah` memicu saat dilepas, karena bidikannya baru final saat itu.
+- **Semua kontrol berupa area kotak** (relatif 0..1), bukan titik. Hasil uji HP (24 & 25-11-2026):
+  saat mata menatap layar komputer, jempol tidak bisa membidik tombol kecil, dan tombol yang jauh
+  (mis. SKILL di tengah atas) terasa terlalu jauh.
+  - Zona (`stik`/`arah`) **mengambang**: titik jempol mendarat di dalam area = pusat lingkaran.
+  - Tombol = **area besar di pinggir** yang bisa ditemukan dengan meraba. Boleh berbentuk L (beberapa kotak).
+  - Tata letak `aksi` adalah rancangan pemilik: separuh kiri gerak; separuh kanan = area aksi
+    berarah yang dikelilingi tiga tombol (kanan atas, kiri bawah, kanan bawah berbentuk L).
+    Isi tiap slot ditentukan per game.
+- **Tombol mengirim tekan, tahan, dan lepas.** `onAksi` saat ditekan (lebih cepat), `onLepas` saat
+  dilepas, dan `p.input[id].tahan` selama ditahan (mis. tangkisan). Zona `arah` memicu `onAksi` saat
+  dilepas, karena bidikannya baru final saat itu.
 - **Aksi dikirim sebagai penghitung**, bukan sebagai kejadian: aksi tidak hilang walaupun ada paket
   jatuh. Kanal PeerJS `reliable:false` = tanpa urutan; paket ber-nomor-urut lama dibuang.
 - **HP mengirim minimal 10×/dtk.** Kalau tidak ada data >0,4 dtk, layar menganggap HP diam dan
@@ -65,5 +76,5 @@ Skrip uji disimpan di scratchpad, bukan di repo.
    memakai `config:{iceServers:[], iceTransportPolicy:'relay'}`.
 
 ## Belum diuji di HP sungguhan
-- Susunan kontrol mengambang versi terakhir (zona SERANG kanan, SKILL/GULING di atas).
+- Susunan `aksi` versi area (SERANG dikelilingi SKILL/TANGKIS/GULING).
 - Menutup browser HP lalu memindai lagi, dan memuat ulang halaman layar, di jaringan sungguhan.

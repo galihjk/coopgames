@@ -51,7 +51,7 @@
     <p><b>Ping</b> = waktu bolak-balik layar → HP → layar. Jeda kontrol kira-kira separuhnya.</p>
     <p><b>Terburuk</b> dan <b>lonjakan</b> dihitung dari 30 detik terakhir. Lonjakan = ping di atas 100 ms. Untuk game aksi, yang penting lonjakannya jarang, bukan hanya rata-ratanya kecil.</p>
     <p><b>Paket/dtk</b> = kiriman HP per detik (±60 saat jempol bergerak, ±10 saat diam). <b>Telat</b> = paket yang tiba setelah paket yang lebih baru (dibuang).</p>
-    <p>Di arena: separuh kiri HP = gerak. Separuh kanan = SERANG: ketuk untuk menyerang ke arah hadap, atau tahan dan geser untuk membidik (lepas = serang). GULING dan SKILL ada di bagian atas, cukup diketuk. Coba kenai boneka sasaran.</p>
+    <p>Di arena: separuh kiri HP = gerak. Separuh kanan: area besar = SERANG (ketuk untuk menyerang ke arah hadap, atau tahan dan geser untuk membidik, lepas = serang). Di pinggirnya ada SKILL (kanan atas), TANGKIS (kiri bawah, tahan = perisai), dan GULING (kanan bawah). Coba kenai boneka sasaran.</p>
   </details>
 </aside>
 
@@ -117,6 +117,7 @@ const pad = CoopPad.host({
     } else if (id === 'guling') { k.guling = .22; k.gx = dx; k.gy = dy; }
     else if (id === 'skill') peluru.push({ x: k.x + dx * 20, y: k.y + dy * 20, vx: dx * 560, vy: dy * 560, hidup: 1.1, p });
   },
+  onLepas(p, id) { const k = kar(p); k.aksi[id + ' lepas'] = (k.aksi[id + ' lepas'] || 0) + 1; },
   onGalat(err) { $('status').textContent = 'Galat koneksi: ' + (err.type || err) + '. Muat ulang halaman.'; },
 });
 $('getar').onclick = () => pad.getarSemua([60, 40, 60]);
@@ -128,7 +129,8 @@ function update(dt) {
   for (const p of pad.pemain.values()) {
     const k = kar(p), g = p.input.gerak, m = Math.hypot(g.x, g.y);
     if (m > .2 && !k.guling) { k.fx = g.x / m; k.fy = g.y / m; } // arah hadap langsung mengikuti joystick
-    let vx = g.x * 230, vy = g.y * 230;
+    const lambat = p.input.tangkis && p.input.tangkis.tahan ? .4 : 1; // menangkis = bergerak pelan
+    let vx = g.x * 230 * lambat, vy = g.y * 230 * lambat;
     if (k.guling > 0) { k.guling = Math.max(0, k.guling - dt); vx = k.gx * 720; vy = k.gy * 720; efek.push({ jenis: 'bayang', x: k.x, y: k.y, t: .18, warna: p.warna }); }
     k.x = Math.max(16, Math.min(W - 16, k.x + vx * dt));
     k.y = Math.max(16, Math.min(H - 16, k.y + vy * dt));
@@ -170,6 +172,10 @@ function gambar() {
       ctx.strokeStyle = '#ff7a5c'; ctx.lineWidth = 3;
       if (sr.x || sr.y) { ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.moveTo(k.x, k.y); ctx.lineTo(k.x + sr.x * 150, k.y + sr.y * 150); ctx.stroke(); ctx.setLineDash([]); }
       else { ctx.beginPath(); ctx.arc(k.x, k.y, 24, 0, 7); ctx.stroke(); }
+    }
+    if (p.input.tangkis && p.input.tangkis.tahan) { // perisai di depan selama TANGKIS ditahan
+      const a = Math.atan2(k.fy, k.fx);
+      ctx.strokeStyle = '#4fc3ff'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(k.x, k.y, 26, a - .9, a + .9); ctx.stroke();
     }
     ctx.fillStyle = p.warna; ctx.beginPath(); ctx.arc(k.x, k.y, 15, 0, 7); ctx.fill();
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(k.x, k.y); ctx.lineTo(k.x + k.fx * 24, k.y + k.fy * 24); ctx.stroke();

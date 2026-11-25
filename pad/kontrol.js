@@ -5,18 +5,19 @@
 //  Di atas CoopNet (koneksi.js). Game TIDAK perlu tahu format pesan; cukup:
 //
 //    const pad = CoopPad.host({
-//      susunan: CoopPad.SUSUNAN.aksi,       // susunan kontrol yang dikirim ke setiap HP
+//      susunan: CoopPad.TATA.aksi({...}),    // susunan kontrol yang dikirim ke setiap HP (isi slot sesuai game)
 //      onSiap(kode, urlPad) {},              // ruang siap; tampilkan QR berisi urlPad
 //      onMasuk(p) {},  onKembali(p) {},      // pemain baru / pemain lama tersambung lagi
 //      onKeluar(p) {},                       // sambungan ditutup
 //      onDiam(p) {},   onAktif(p) {},        // tak ada data >0,4 dtk (input dinetralkan) / data datang lagi
-//      onAksi(p, idKontrol, arah) {},        // tombol ditekan, atau zona "arah" dilepas
+//      onAksi(p, idKontrol, arah) {},        // tombol DITEKAN, atau zona "arah" DILEPAS
+//      onLepas(p, idTombol) {},              // tombol dilepas (mis. akhir tangkisan)
 //      onMencoba(idPerangkat, iceState) {},  onGalat(err) {},
 //    });
 //    // tiap frame: baca p.input untuk setiap p di pad.pemain (Map)
 //    //   zona 'stik' → p.input.gerak = {x, y}            (panjang 0..1)
 //    //   zona 'arah' → p.input.serang = {tahan, x, y}    (x,y = arah bidik selama ditahan, 0 bila belum digeser)
-//    //   tombol      → p.input.guling = {tahan}
+//    //   tombol      → p.input.tangkis = {tahan}
 //    pad.getar(p, pola); pad.getarSemua(pola); pad.gantiSusunan(susunanBaru);
 //
 //  Data pemain p: {id, nomor, warna, tersambung, aktif, input, ping:{akhir,rata,maks,lonjakan,n}, paketPerDetik, telat}
@@ -27,11 +28,16 @@
 //
 //  SUSUNAN (dikirim ke HP saat bergabung; HP menggambar kontrol sesuai susunan ini):
 //    { nama, orientasi:'mendatar',
-//      zona:   [ {id, jenis:'stik'|'arah', sisi:'kiri'|'kanan', label, warna} ],   // maks. satu per sisi
-//      tombol: [ {id, label, warna, x:0..1, y:0..1} ] }  // tombol tap; x,y = posisi relatif area layar HP
+//      zona:   [ {id, jenis:'stik'|'arah', area:[x0,y0,x1,y1], label, warna} ],
+//      tombol: [ {id, label, warna, area:[x0,y0,x1,y1] atau [[...],[...]] } ] }
+//    area = kotak relatif 0..1 dari bidang kontrol HP (di bawah bilah status); tombol boleh
+//    terdiri dari beberapa kotak (mis. bentuk L). Sentuhan dicek ke tombol dulu, lalu ke zona.
+//    Zona MENGAMBANG: titik jempol mendarat di dalam area menjadi pusat lingkaran.
+//    Tombol tanpa arah: mengirim tekan, tahan, lepas. Buat tombol sebagai area BESAR di pinggir,
+//    bukan titik kecil, karena pemain menatap layar komputer, bukan HP.
 //
 //  Format pesan HP → layar (diurus file ini & pad/index.html, game tidak perlu tahu):
-//    {t:'s', v:versiSusunan, q:nomorUrut, z:[...per zona], b:[[tahan, jumlahTekan] per tombol]}
+//    {t:'s', v:versiSusunan, q:nomorUrut, z:[...per zona], b:[[tahan, jumlahTekan, jumlahLepas] per tombol]}
 //      zona stik: [x, y];  zona arah: [tahan, bidikX, bidikY, jumlahLepas, lepasX, lepasY]
 //    Aksi dibawa sebagai PENGHITUNG, jadi tidak hilang walau ada paket jatuh. Paket dengan nomor
 //    urut lebih kecil dari yang sudah diterima dibuang (kanal tanpa urutan).
@@ -42,19 +48,41 @@ const CoopPad = (() => {
   const BATAS_DIAM = 400;  // ms tanpa data → input dinetralkan (HP mengirim minimal tiap 100 ms)
   const JENDELA_PING = 30000;
 
-  const SUSUNAN = {
-    // game aksi top-down: gerak kiri, serang berarah kanan, dua tombol tap berjauhan di atas
-    aksi: {
-      nama: 'aksi', orientasi: 'mendatar',
-      zona: [
-        { id: 'gerak', jenis: 'stik', sisi: 'kiri', label: 'GERAK', warna: '#9aa3c7' },
-        { id: 'serang', jenis: 'arah', sisi: 'kanan', label: 'SERANG', warna: '#ff7a5c' },
-      ],
-      tombol: [
-        { id: 'skill', label: 'SKILL', warna: '#b48cff', x: .62, y: 0 },
-        { id: 'guling', label: 'GULING', warna: '#7ee0a8', x: 1, y: 0 },
-      ],
+  // TATA LETAK (bentuk area) terpisah dari ISI (id, label, warna) yang ditentukan tiap game.
+  const TATA = {
+    // Tata letak "aksi" (rancangan pemilik, uji HP 25-11-2026), HP mendatar:
+    //   ┌──────────────┬──────────────┬──────┐
+    //   │              │              │kanan │   gerak      = joystick mengambang (separuh kiri)
+    //   │              │     arah     │ atas │   arah       = aksi berarah mengambang
+    //   │    gerak     │              ├──────┤   kananAtas, kiriBawah, kananBawah = tombol tanpa arah
+    //   │              ├─────────┬────┘      │   (tekan/tahan/lepas). kananBawah berbentuk L, paling
+    //   │              │kiriBawah│ kananBawah│   dekat jempol → untuk aksi yang paling sering dipakai.
+    //   └──────────────┴─────────┴───────────┘
+    // Isi tiap slot: {id, label, warna}. Slot tombol yang tidak diisi dibiarkan kosong.
+    //   CoopPad.TATA.aksi({ gerak:{id:'gerak',label:'GERAK'}, arah:{id:'tembak',label:'TEMBAK',warna:'#f80'},
+    //                       kananBawah:{id:'lompat',label:'LOMPAT',warna:'#7e7'} })
+    aksi(isi) {
+      const AREA = {
+        kananAtas: [.875, 0, 1, .5],
+        kiriBawah: [.5, .75, .75, 1],
+        kananBawah: [[.75, .75, 1, 1], [.875, .5, 1, .75]],
+      };
+      const zona = [{ jenis: 'stik', area: [0, 0, .5, 1], warna: '#9aa3c7', ...isi.gerak }];
+      if (isi.arah) zona.push({ jenis: 'arah', area: [.5, 0, .875, .75], warna: '#ff7a5c', ...isi.arah });
+      const tombol = Object.keys(AREA).filter(k => isi[k]).map(k => ({ warna: '#9aa3c7', ...isi[k], area: AREA[k] }));
+      return { nama: isi.nama || 'aksi', orientasi: 'mendatar', zona, tombol };
     },
+  };
+
+  // CONTOH pengisian (dipakai halaman uji-koneksi). Nama aksinya hanya contoh; tiap game mengisi sendiri.
+  const SUSUNAN = {
+    aksi: TATA.aksi({
+      gerak: { id: 'gerak', label: 'GERAK' },
+      arah: { id: 'serang', label: 'SERANG', warna: '#ff7a5c' },
+      kananAtas: { id: 'skill', label: 'SKILL', warna: '#b48cff' },
+      kiriBawah: { id: 'tangkis', label: 'TANGKIS', warna: '#4fc3ff' },
+      kananBawah: { id: 'guling', label: 'GULING', warna: '#7ee0a8' },
+    }),
   };
 
   function inputNetral(s) {
@@ -128,8 +156,10 @@ const CoopPad = (() => {
         susunan.tombol.forEach((t, i) => {
           const v = d.b[i]; if (!v) return;
           p.input[t.id].tahan = !!v[0];
-          if (!awal && v[1] > p._hitB[i]) panggil('onAksi', p, t.id, null);
-          p._hitB[i] = v[1];
+          const lama = p._hitB[i];
+          if (!awal && v[1] > lama[0]) panggil('onAksi', p, t.id, null);
+          if (!awal && v[2] > lama[1]) panggil('onLepas', p, t.id);
+          p._hitB[i] = [v[1], v[2]];
         });
       },
     });
@@ -160,5 +190,5 @@ const CoopPad = (() => {
     };
   }
 
-  return { host, SUSUNAN, WARNA };
+  return { host, TATA, SUSUNAN, WARNA };
 })();
