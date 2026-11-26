@@ -424,6 +424,11 @@ function worldT(sx = 0, sy = 0) {
 function render() {
   baseT(); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
   if (G.mode === 'menu') { baseT(); emberBg(1 / 60); return; } // menu HTML di atasnya
+  if (touchLand() && portrait) { // kontroler HP mendatar tetapi HP sedang tegak (kunci arah tidak didukung browser)
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = '#07050a'; ctx.fillRect(0, 0, SW, SH);
+    ctx.fillStyle = '#e8d9b0'; ctx.font = '600 18px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('↻  Putar HP ke posisi mendatar', SW / 2, SH / 2); return;
+  }
   if (G.mode === 'title') { drawTitle(); drawFade(); return; }
   if (G.mode === 'win') { drawWin(); drawFade(); return; }
   if (G.mode === 'clear') { drawClear(); drawFade(); return; }

@@ -7,7 +7,7 @@
 // ready:false = belum dibuat (tampil redup dengan tanda "Segera").
 const CTRL = {
   touchP: { solo: true, ico: '📱', name: 'Layar sentuh (tegak)', desc: 'Pegang HP tegak, satu tangan untuk joystick, satu untuk tombol', ready: true, touch: true },
-  touchL: { solo: true, ico: '📱', name: 'Layar sentuh (mendatar)', desc: 'Pegang HP mendatar seperti konsol genggam', ready: false, touch: true },
+  touchL: { solo: true, ico: '📱', name: 'Layar sentuh (mendatar)', desc: 'Pegang HP mendatar seperti konsol genggam: joystick kiri, tombol kanan', ready: true, touch: true },
   kb: { solo: true, ico: '⌨️', name: 'Keyboard', desc: 'WASD bergerak, F/G/H untuk aksi', ready: true },
   mouse: { solo: true, ico: '🖱️', name: 'Mouse', desc: 'Karakter mengikuti penunjuk, klik kiri/kanan untuk aksi', ready: true },
   mousekb: { solo: true, ico: '⌨️🖱️', name: 'Mouse + keyboard', desc: 'WASD bergerak, mouse membidik', ready: true },
@@ -21,6 +21,9 @@ const ctrlOk = (id, solo) => { const c = CTRL[id]; return c && c.ready && (c.sol
 const isTouchCtrl = () => !!(CTRL[SAVE.ctrl] && CTRL[SAVE.ctrl].touch);
 // layar komputer: kontroler bukan sentuh. Simpanan lama tanpa SAVE.ctrl dianggap sentuh (perilaku lama).
 const sharedScreen = () => !!(CTRL[SAVE.ctrl] && !CTRL[SAVE.ctrl].touch);
+// bingkai baca TEGAK (bukan diputar untuk HP di meja): layar komputer, atau HP mendatar dipegang seperti konsol
+const uprightView = () => sharedScreen() || SAVE.ctrl === 'touchL';
+const touchLand = () => SAVE.ctrl === 'touchL';
 
 const MENU = document.getElementById('menu');
 function showMenu() {
@@ -61,6 +64,7 @@ MENU.addEventListener('click', e => {
 });
 function pickCtrl(id, solo) {
   G.solo = solo; SAVE.solo = solo; SAVE.ctrl = id; saveGame();
+  resize(); // tata letak tombol sentuh bergantung pada kontroler
   if (id === 'pad') { menuLobby(); return; } // HP harus tersambung dulu
   MENU.hidden = true; G.mode = 'title'; Snd.swap();
   if (CTRL[id].touch) tryFullscreen(); // sentuh: layar penuh + kunci tegak (butuh ketukan pengguna, ini salah satunya)

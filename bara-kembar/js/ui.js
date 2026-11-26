@@ -13,7 +13,7 @@ function drawIcon(kind, x, y, s, rot, col) {
 function drawControls() {
   if (G.mode !== 'play' && G.mode !== 'over' && G.mode !== 'intro' || sharedScreen()) return;
   for (const i of frames()) {
-    const c = ctrls[i], p = players[i], n = IN[i], rot = i === 0 ? Math.PI / 2 : -Math.PI / 2;
+    const c = ctrls[i], p = players[i], n = IN[i], rot = touchLand() ? 0 : i === 0 ? Math.PI / 2 : -Math.PI / 2;
     // joystick
     const j = n.joy, bx = j ? j.bx : c.joy.x, by = j ? j.by : c.joy.y;
     ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.strokeStyle = `rgba(${p.glow},.35)`; ctx.lineWidth = 2;
@@ -53,7 +53,7 @@ function txt(s, x, y, size, col, align = 'center', font = 'sans-serif', weight =
 }
 const SERIF = 'Georgia, "Times New Roman", serif';
 function drawHUD(p, LW, LH) {
-  const u = U, base = LH - (sharedScreen() ? 46 : 226) * u, bw = Math.min(230 * u, LW * .62), x = LW / 2 - bw / 2;
+  const u = U, base = LH - (uprightView() ? 46 : 226) * u, bw = Math.min(230 * u, LW * .62), x = LW / 2 - bw / 2;
   // HP
   ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(x - 2, base - 2, bw + 4, 12 * u);
   ctx.fillStyle = '#e8d0a0'; ctx.fillRect(x, base, bw * clamp(p.hpLag / p.maxHp, 0, 1), 8 * u);
@@ -116,6 +116,8 @@ const CALLOUTS = {
   bow: [['Tahan & lepas: Panah', 'tahan lebih lama = tembakan kuat'], ['Guling', 'kebal sesaat']],
   swap: ['Ketuk: Ganti senjata', 'tahan: minum ramuan'],
 };
+// dasar label petunjuk: HP tegak = di atas HUD; HP mendatar = tepat di atas tombol teratas
+const calloutBase = (i, LH) => touchLand() ? screenToFrame(i, { x: 0, y: H - 215 * U }).y : LH - 226 * U;
 function drawCallouts(p, LW, base, alpha, withJoy) {
   const u = U, c = ctrls[p.i], list = CALLOUTS[p.weapon].concat([CALLOUTS.swap]);
   const pulse = .5 + Math.sin(G.t * 6) * .5;
@@ -176,7 +178,7 @@ function emberBg(dt) {
 }
 // Tombol menu per bingkai pemain. Hanya P1 (bingkai 0) yang memegang kontrol permainan;
 // P2 hanya memilih warna dan melihat keterangan menunggu.
-const TITLE_Y = LH => LH * (sharedScreen() ? .3 : .55); // HP: judul di separuh bawah (dekat jempol); layar komputer: lebih ke atas
+const TITLE_Y = LH => LH * (uprightView() ? .3 : .55); // HP: judul di separuh bawah (dekat jempol); layar komputer: lebih ke atas
 const titleY0 = LH => TITLE_Y(LH) + 52 * U;
 function swatchRow(i, cy) {
   const r = 11 * U, gap = 30 * U, n = PALETTE.length, cx0 = frameSize(i).LW / 2 - (n - 1) / 2 * gap;
@@ -336,7 +338,7 @@ function drawTitle() {
   for (const i of frames()) inFrame(i, (LW, LH) => {
     txt('BARA KEMBAR', LW / 2, TITLE_Y(LH), 34 * U, '#e8d9b0', 'center', SERIF, '400');
     txt(G.solo ? 'satu jiwa, satu bara pendamping' : 'dua jiwa, satu nyala', LW / 2, TITLE_Y(LH) + 28 * U, 13 * U, '#b8a888', 'center', SERIF, 'italic 400');
-    txt(sharedScreen() ? (i === 0 ? 'Enter = mulai  •  ◂ ▸ = pilih level  •  Esc = jeda' : 'Kamu P2  •  P1 yang memilih level') : G.solo ? 'Pegang HP tegak • Bot menjadi rekanmu' : i === 0 ? (Math.floor(G.t / 4) % 2 ? '⚠ Main berdua? Matikan dulu gestur "usap 3 jari" di HP' : 'Letakkan HP mendatar • kamu P1, rekanmu (P2) di seberang') : 'Kamu P2 • P1 di seberang yang memilih mode & level', LW / 2, LH - 16 * U, 10.5 * U, 'rgba(220,210,190,.6)', 'center', 'sans-serif', '500');
+    txt(sharedScreen() ? (i === 0 ? 'Enter = mulai  •  ◂ ▸ = pilih level  •  Esc = jeda' : 'Kamu P2  •  P1 yang memilih level') : G.solo ? (touchLand() ? 'Pegang HP mendatar • Bot menjadi rekanmu' : 'Pegang HP tegak • Bot menjadi rekanmu') : i === 0 ? (Math.floor(G.t / 4) % 2 ? '⚠ Main berdua? Matikan dulu gestur "usap 3 jari" di HP' : 'Letakkan HP mendatar • kamu P1, rekanmu (P2) di seberang') : 'Kamu P2 • P1 di seberang yang memilih mode & level', LW / 2, LH - 16 * U, 10.5 * U, 'rgba(220,210,190,.6)', 'center', 'sans-serif', '500');
     const y0 = titleY0(LH);
     if (i === 0) {
       txt('Warnamu', LW / 2, y0 + 176 * U, 10 * U, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '600');
@@ -375,7 +377,7 @@ function drawPause() {
       if (col) noteLines(players[i], LW / 2, LH * .3 + 132 * U + gy, 'center', false, false);
       else noteLines(players[i], 124 * U, LH / 2 + (i === 0 ? 1 : 16) * U, 'left', false, false); // P1: di atas statistik
       if (sharedScreen()) drawKeyHelp(players[i], LW / 2, LH * .3 + 165 * U + gy);
-      else drawCallouts(players[i], LW, LH - 226 * U, 1, G.solo); // petunjuk tombol tetap terbaca saat jeda
+      else drawCallouts(players[i], LW, calloutBase(i, LH), 1, G.solo); // petunjuk tombol tetap terbaca saat jeda
     }
     if (i === 1) waitP1(LW, LH, col); // tombol LANJUT/KE JUDUL hanya di P1
   });
@@ -541,7 +543,7 @@ function drawIntro() {
     }
     if (done) { ctx.globalAlpha = .6 + Math.sin(G.t * 3) * .3; txt('Menunggu rekanmu…', col ? LW / 2 : 12 * U + 48 * U, col ? LH * .3 + 52 * U : LH / 2 + 64 * U, 13 * U, '#e8d9b0', 'center', SERIF, 'italic 400'); ctx.globalAlpha = 1; }
     if (sharedScreen()) drawKeyHelp(players[i], LW / 2, LH * .3 + 135 * U);
-    else drawCallouts(players[i], LW, LH - 226 * U, 1, G.solo); // mode 2 pemain: ruang sempit, joystick dijelaskan lewat teks
+    else drawCallouts(players[i], LW, calloutBase(i, LH), 1, G.solo); // mode 2 pemain: ruang sempit, joystick dijelaskan lewat teks
   });
   drawMenuButtons();
 }

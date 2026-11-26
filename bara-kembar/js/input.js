@@ -14,6 +14,12 @@ const released = (i, k) => !IN[i].h[k] && IN[i].pv[k];
 const ctrls = [{}, {}];
 function layoutControls() {
   const u = U;
+  if (typeof touchLand === 'function' && touchLand()) { // HP mendatar: joystick kiri bawah, tombol kanan bawah (cermin tata letak HP tegak)
+    const c = ctrls[0];
+    c.joy = { x: 115 * u, y: H - 105 * u, r: 70 * u };
+    c.b = [{ x: W - 75 * u, y: H - 95 * u, r: 42 * u }, { x: W - 167 * u, y: H - 95 * u, r: 40 * u }, { x: W - 121 * u, y: H - 172 * u, r: 29 * u }];
+    return;
+  }
   for (let i = 0; i < 2; i++) {
     const m = (x, y) => i === 0 ? { x, y } : { x: W - x, y: H - y };
     const c = ctrls[i];
@@ -138,7 +144,7 @@ function assignTouch(q) {
   if (best) { IN[best.i].tb[best.k] = 1; return best; }
   for (const i of frames()) {
     // mode solo: area joystick P1 lebih lega karena tidak berbagi layar
-    const inZone = i === 0 ? (G.solo ? q.x < W * .45 && q.y < H * .6 : q.x < W * .33 && q.y < H * .58) : (q.x > W * .67 && q.y > H * .42);
+    const inZone = touchLand() ? q.x < W * .45 && q.y > H * .3 : i === 0 ? (G.solo ? q.x < W * .45 && q.y < H * .6 : q.x < W * .33 && q.y < H * .58) : (q.x > W * .67 && q.y > H * .42);
     if (inZone && !IN[i].joy) { IN[i].joy = { bx: q.x, by: q.y, x: q.x, y: q.y, dx: 0, dy: 0 }; return { i, kind: 'joy' }; }
   }
   return null;

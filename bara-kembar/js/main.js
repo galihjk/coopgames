@@ -47,7 +47,8 @@ function updateCam(dt) {
 
 // kunci tegak di kedua mode: P1 di sisi bawah HP, P2 di sisi atas (solo: HP dipegang tegak)
 function lockOrientation() {
-  try { screen.orientation && screen.orientation.lock && screen.orientation.lock('portrait').catch(() => { }); } catch (e) { }
+  const o = touchLand() ? 'landscape' : 'portrait'; // HP mendatar (konsol genggam) / HP tegak & HP di meja
+  try { screen.orientation && screen.orientation.lock && screen.orientation.lock(o).catch(() => { }); } catch (e) { }
 }
 function tryFullscreen() {
   try {

@@ -77,12 +77,15 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
   menu, P2 cukup memilih warna dan melihat "Menunggu P1…".
 - **Menu awal berupa halaman HTML, bukan canvas:** arah layar & layar penuh baru bisa ditentukan setelah kontroler
   dipilih (sentuh tegak vs layar komputer). Tombol "PEMAIN & KONTROL" di layar judul kembali ke menu ini.
-  Kontroler dengan `ready:false` tampil redup "Segera". Rencana tahap berikutnya: (4) sentuh mendatar solo;
-  (5) pilihan bahasa. "Cara main" diingat per kontroler (`G.introSeen[ctrl]`);
+  Kontroler dengan `ready:false` tampil redup "Segera". Rencana tahap berikutnya: (5) pilihan bahasa. "Cara main" diingat per kontroler (`G.introSeen[ctrl]`);
   di layar komputer isinya daftar tombol (`keyRows`/`drawKeyHelp`), bukan label berpanah.
 - **Kontroler Mouse (tanpa WASD):** berjalan ke arah penunjuk, diam bila penunjuk dekat karakter; selama klik kiri/kanan
   ditahan karakter berhenti dan hanya menghadap penunjuk. Tanpa itu, menangkis sambil menjaga jarak mustahil.
   Tombol mouse dibaca dari `e.buttons` (Pointer Events tak memicu pointerdown untuk tombol kedua); scroll dijeda 0,35 dtk.
+- **Sentuh mendatar (`touchL`, solo):** HP dipegang seperti konsol. Bingkai tegak memakai kerangka yang sama dengan
+  layar komputer (`uprightView()`), tetapi tombol sentuh tetap ada: joystick kiri bawah, tombol kanan bawah
+  (`layoutControls`), label petunjuk di atas tombol (`calloutBase`). Menu diperkecil lebih sedikit (`FRAME_UNITS_HP`)
+  karena layar pendek. Arah dikunci `landscape`; bila HP tetap tegak, layar hanya menampilkan "Putar HP".
 - **Layar + HP (`pad.js`):** HP bernomor 1 = P1, 2 = P2 (solo: hanya 1), HP lain diabaikan. Susunan `TATA.aksi`:
   kiri gerak, kanan atas SERANG (berarah), kanan bawah TAMENG/GULING (berarah), pinggir GANTI & RAMUAN. Zona berarah
   yang digeser = `IN[i].aim`. Tiap tekanan dijadikan denyut tombol singkat (`PAD_PULSE`) agar ketukan yang selesai di
