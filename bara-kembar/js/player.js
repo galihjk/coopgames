@@ -135,16 +135,24 @@ function updatePlayer(p, dt) {
   const mAng = Math.atan2(inp.my, inp.mx);
   p.st += dt; p.moving = 0;
   const slow = p.slowT > 0 ? .5 : 1;
+  // inp.aim (mouse): arah hadap/bidik terpisah dari arah jalan → bisa mundur sambil tetap menghadap musuh
+  const aim = inp.aim;
   const walk = spd => { // jalan biasa: arah langsung mengikuti joystick
     spd *= slow;
+    if (aim != null) p.face = aim;
     if (m > 0) {
-      p.face = mAng;
+      if (aim == null) p.face = mAng;
       movePlayer(p, Math.cos(mAng) * spd * m * dt, Math.sin(mAng) * spd * m * dt);
       p.walk += spd * m * dt * .11; p.moving = m;
     }
   };
   const aimWalk = spd => { // sambil menahan tombol: dorongan ringan = membidik saja, dorongan penuh = melangkah pelan
     spd *= slow;
+    if (aim != null) { // bidik dengan mouse: gerak = melangkah pelan ke arah mana pun
+      p.face = aim;
+      if (m > 0) { movePlayer(p, Math.cos(mAng) * spd * m * dt, Math.sin(mAng) * spd * m * dt); p.walk += spd * m * dt * .11; p.moving = m * .5; }
+      return;
+    }
     if (m <= 0) return;
     p.face = mAng;
     if (mag < AIM_ONLY) return;

@@ -2,7 +2,7 @@
 // =====================================================================
 //  INPUT
 // =====================================================================
-const IN = [0, 1].map(() => ({ mx: 0, my: 0, tb: [0, 0, 0], kb: [0, 0, 0], h: [0, 0, 0], pv: [0, 0, 0], buf: [-1, -1, -1], joy: null, kx: { u: 0, d: 0, l: 0, r: 0 } }));
+const IN = [0, 1].map(() => ({ mx: 0, my: 0, aim: null, tb: [0, 0, 0], kb: [0, 0, 0], mb: [0, 0, 0], wheelT: -1, h: [0, 0, 0], pv: [0, 0, 0], buf: [-1, -1, -1], joy: null, kx: { u: 0, d: 0, l: 0, r: 0 } }));
 // Input buffer: tombol yang ditekan sedikit sebelum karakter siap (mis. di akhir guling) tetap diingat
 // selama BUFFER_T detik lalu dijalankan begitu bisa. pressed() memakai (mengonsumsi) tekanan itu.
 const BUFFER_T = .25;
@@ -24,6 +24,7 @@ function layoutControls() {
 }
 const KEYMAP = {
   KeyW: [0, 'u'], KeyS: [0, 'd'], KeyA: [0, 'l'], KeyD: [0, 'r'], KeyF: [0, 0], KeyG: [0, 1], KeyH: [0, 2],
+  KeyQ: [0, 2], KeyE: [0, 2], // mouse+keyboard: Q ganti senjata, E (tahan) minum ramuan
   ArrowUp: [1, 'u'], ArrowDown: [1, 'd'], ArrowLeft: [1, 'l'], ArrowRight: [1, 'r'],
   Numpad1: [1, 0], Numpad2: [1, 1], Numpad3: [1, 2], Comma: [1, 0], Period: [1, 1], Slash: [1, 2],
 };
@@ -40,13 +41,30 @@ addEventListener('keydown', e => {
   if (G.mode === 'clear' && e.code === 'Enter') { if (G.clearT > .6 && G.fadeDir === 0) continueAfterClear(); return; }
   if (G.mode === 'title' && e.code === 'KeyK') { toggleDiff(); return; }
   const m = KEYMAP[e.code]; if (!m) return; e.preventDefault();
-  const n = IN[G.solo ? 0 : m[0]]; // mode solo: kedua set tombol mengendalikan P1
+  if (G.mode === 'intro' && m[1] === 0) { introOk(keyTarget(m)); return; } // tombol serang = OK
+  const n = IN[keyTarget(m)];
   if (typeof m[1] === 'number') n.kb[m[1]] = 1; else n.kx[m[1]] = 1;
 });
 addEventListener('keyup', e => {
   const m = KEYMAP[e.code]; if (!m) return;
-  for (const n of G.solo ? [IN[0]] : [IN[m[0]]]) { if (typeof m[1] === 'number') n.kb[m[1]] = 0; else n.kx[m[1]] = 0; }
+  const n = IN[keyTarget(m)]; if (typeof m[1] === 'number') n.kb[m[1]] = 0; else n.kx[m[1]] = 0;
 });
+// pemain yang dikendalikan sebuah tombol: solo = P1 (kedua set tombol), mouse+keyboard berdua = keyboard milik P2
+const keyTarget = m => SAVE.ctrl === 'mkb2' ? 1 : G.solo ? 0 : m[0];
+// ---------- mouse (kontroler mouse / mouse+keyboard; selalu P1) ----------
+// Tombol dibaca dari e.buttons: Pointer Events tidak memicu pointerdown untuk tombol kedua yang ditekan bersamaan.
+const MOUSE = { x: 0, y: 0, b: 0, on: false };
+const mouseCtrl = () => SAVE.ctrl === 'mouse' || SAVE.ctrl === 'mousekb' || SAVE.ctrl === 'mkb2';
+const mouseWalks = () => SAVE.ctrl === 'mouse' || SAVE.ctrl === 'mkb2'; // gerak mengikuti penunjuk (tanpa WASD)
+function trackMouse(e) { if (e.pointerType !== 'mouse') return; const q = toL(e.clientX, e.clientY); MOUSE.x = q.x; MOUSE.y = q.y; MOUSE.b = e.buttons; MOUSE.on = true; }
+let lastWheel = -9;
+cv.addEventListener('wheel', e => { // scroll = ganti senjata (dijeda agar satu putaran / usapan touchpad tidak berkali-kali)
+  e.preventDefault();
+  if (!mouseCtrl() || G.mode !== 'play' || G.t - lastWheel < .35) return;
+  lastWheel = G.t; IN[0].wheelT = G.t;
+}, { passive: false });
+cv.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); }); // klik tengah: cegah gulir otomatis
+addEventListener('blur', () => { MOUSE.b = 0; for (const n of IN) { n.kb = [0, 0, 0]; n.kx = { u: 0, d: 0, l: 0, r: 0 }; } });
 const ptrs = new Map();
 // Banyak HP (mis. Oppo/Realme/Xiaomi) memakai gestur tangkapan layar 3 jari: begitu ±3 jari menempel serentak,
 // sistem merebut & membatalkan semua sentuhan. Kalau itu terjadi saat bermain, game menjeda & menjelaskan cara mematikannya.
@@ -77,12 +95,15 @@ cv.addEventListener('pointerdown', e => {
     try { cv.setPointerCapture(e.pointerId); } catch (er) { }
     return;
   }
+  trackMouse(e);
   if (G.mode !== 'play') { uiTap(q); return; }
-  if (Math.hypot(q.x - W / 2, q.y - 20 * U) < 26 * U) { togglePause(); return; }
+  if (Math.hypot(q.x - W / 2, q.y - 20 * U) < 26 * U) { MOUSE.b = 0; togglePause(); return; }
+  if (sharedScreen()) return; // layar komputer: tidak ada tombol sentuh
   const a = assignTouch(q);
   if (a) { ptrs.set(e.pointerId, a); try { cv.setPointerCapture(e.pointerId); } catch (er) { } }
 }, { passive: false });
 cv.addEventListener('pointermove', e => {
+  trackMouse(e);
   const tp = TT.pts.get(e.pointerId); if (tp) { tp.x = e.clientX; tp.y = e.clientY; return; }
   const a = ptrs.get(e.pointerId); if (!a || a.kind !== 'joy') return;
   const q = toL(e.clientX, e.clientY), j = IN[a.i].joy; if (!j) return;
@@ -95,6 +116,7 @@ cv.addEventListener('pointermove', e => {
   j.dx = dx; j.dy = dy;
 }, { passive: false });
 function endPtr(e) {
+  trackMouse(e);
   const fingers = live.size; live.delete(e.pointerId);
   if (e.type === 'pointercancel' && fingers >= 3) gestureCancelled();
   if (TT.pts.has(e.pointerId)) {
@@ -123,11 +145,31 @@ function assignTouch(q) {
 }
 function pollInput() {
   for (const n of IN) {
-    for (let k = 0; k < 3; k++) n.h[k] = n.tb[k] || n.kb[k] ? 1 : 0;
+    for (let k = 0; k < 3; k++) n.h[k] = n.tb[k] || n.kb[k] ? 1 : 0; // mouse ditambahkan di pollMouse
+    if (G.t - n.wheelT < .1) n.h[2] = 1; // scroll = ketukan singkat tombol 3 (ganti senjata)
     let mx = n.kx.r - n.kx.l, my = n.kx.d - n.kx.u;
     if (mx || my) { const l = Math.hypot(mx, my); mx /= l; my /= l; }
     if (n.joy) { mx = n.joy.dx; my = n.joy.dy; }
     n.mx = mx; n.my = my;
+  }
+  pollMouse();
+}
+// mouse → IN[0]: klik kiri/kanan/tengah = tombol 1/2/3, arah hadap = ke penunjuk.
+// Kontroler "Mouse" (tanpa WASD): berjalan ke arah penunjuk (diam bila penunjuk dekat karakter);
+// selama klik kiri/kanan ditahan karakter berhenti dan hanya berputar menghadap penunjuk (menangkis/membidik).
+function pollMouse() {
+  const on = mouseCtrl() && G.mode === 'play';
+  const cur = on ? 'crosshair' : 'default'; if (cv.style.cursor !== cur) cv.style.cursor = cur;
+  const n = IN[0]; n.mb = [0, 0, 0]; n.aim = null;
+  if (!on || !MOUSE.on || !L) return;
+  n.mb = [MOUSE.b & 1 ? 1 : 0, MOUSE.b & 2 ? 1 : 0, MOUSE.b & 4 ? 1 : 0];
+  for (let k = 0; k < 3; k++) if (n.mb[k]) n.h[k] = 1;
+  const p = players[0], sx = (p.x - cam.x) * cam.z + W / 2, sy = (p.y - cam.y) * cam.z + H / 2;
+  const dx = MOUSE.x - sx, dy = MOUSE.y - sy, d = Math.hypot(dx, dy);
+  if (d > 6 * U) n.aim = Math.atan2(dy, dx);
+  if (mouseWalks()) {
+    const mag = n.h[0] || n.h[1] || d < 30 * U ? 0 : clamp(.35 + (d - 30 * U) / (120 * U), .35, 1);
+    n.mx = mag ? dx / d * mag : 0; n.my = mag ? dy / d * mag : 0;
   }
 }
 function endInput() { for (const n of IN) for (let k = 0; k < 3; k++) n.pv[k] = n.h[k]; }

@@ -509,7 +509,7 @@ function render() {
   drawVignette();
   drawOffscreen();
   drawControls();
-  for (const i of frames()) inFrame(i, (LW, LH) => drawHUD(players[i], LW, LH));
+  for (const i of frames()) inFrame(i, (LW, LH) => drawHUD(players[i], LW, LH), true);
   drawPauseBtn();
   if (G.mode === 'over') drawOver();
   if (G.mode === 'pause') drawPause();

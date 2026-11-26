@@ -11,7 +11,7 @@ function drawIcon(kind, x, y, s, rot, col) {
   ctx.restore();
 }
 function drawControls() {
-  if (G.mode !== 'play' && G.mode !== 'over' && G.mode !== 'intro') return;
+  if (G.mode !== 'play' && G.mode !== 'over' && G.mode !== 'intro' || sharedScreen()) return;
   for (const i of frames()) {
     const c = ctrls[i], p = players[i], n = IN[i], rot = i === 0 ? Math.PI / 2 : -Math.PI / 2;
     // joystick
@@ -53,7 +53,7 @@ function txt(s, x, y, size, col, align = 'center', font = 'sans-serif', weight =
 }
 const SERIF = 'Georgia, "Times New Roman", serif';
 function drawHUD(p, LW, LH) {
-  const u = U, base = LH - 226 * u, bw = Math.min(230 * u, LW * .62), x = LW / 2 - bw / 2;
+  const u = U, base = LH - (sharedScreen() ? 46 : 226) * u, bw = Math.min(230 * u, LW * .62), x = LW / 2 - bw / 2;
   // HP
   ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(x - 2, base - 2, bw + 4, 12 * u);
   ctx.fillStyle = '#e8d0a0'; ctx.fillRect(x, base, bw * clamp(p.hpLag / p.maxHp, 0, 1), 8 * u);
@@ -176,10 +176,10 @@ function emberBg(dt) {
 }
 // Tombol menu per bingkai pemain. Hanya P1 (bingkai 0) yang memegang kontrol permainan;
 // P2 hanya memilih warna dan melihat keterangan menunggu.
-const TITLE_Y = LH => LH * .55;
+const TITLE_Y = LH => LH * (sharedScreen() ? .3 : .55); // HP: judul di separuh bawah (dekat jempol); layar komputer: lebih ke atas
 const titleY0 = LH => TITLE_Y(LH) + 52 * U;
 function swatchRow(i, cy) {
-  const r = 11 * U, gap = 30 * U, n = PALETTE.length, cx0 = H / 2 - (n - 1) / 2 * gap;
+  const r = 11 * U, gap = 30 * U, n = PALETTE.length, cx0 = frameSize(i).LW / 2 - (n - 1) / 2 * gap;
   return PALETTE.map((_, k) => ({ id: 'color', k, pi: i, swatch: true, x: cx0 + k * gap - r, y: cy - r, w: r * 2, h: r * 2 }));
 }
 // lama bermain: "1 j 12 m" / "12 m" / "40 d"
@@ -191,7 +191,7 @@ function levelSub(k) { // nama level, bergantian dengan riwayat (kalau sudah per
 }
 function levelLockText(k) { const n = k + 1 - OPEN_LEVELS - SAVE.cleared.length; return '🔒 tamatkan ' + n + ' level lagi'; }
 function menuButtons(i) {
-  const u = U, LW = H, LH = W, host = i === 0;
+  const u = U, { LW, LH } = frameSize(i), host = i === 0;
   if (G.mode === 'title') {
     if (!host) return swatchRow(i, titleY0(LH) + 70 * u);
     // pemilih level: ◂ [LEVEL n · nama] ▸, titik progres, MULAI, lalu warna
@@ -207,14 +207,14 @@ function menuButtons(i) {
       // reset progres: ketuk sekali untuk bersiap, ketuk lagi dalam 3 detik untuk menghapus
       // baris tombol kecil: Catatan · Tes sentuh · Reset progres (reset hanya bila ada progres)
       { id: 'records', tiny: true, x: LW / 2 - 183 * u, y: LH - 56 * u, w: 118 * u, h: 24 * u, label: 'Catatan' },
-      { id: 'ttest', tiny: true, x: LW / 2 - 59 * u, y: LH - 56 * u, w: 118 * u, h: 24 * u, label: 'Tes sentuh' },
+      ...(sharedScreen() ? [] : [{ id: 'ttest', tiny: true, x: LW / 2 - 59 * u, y: LH - 56 * u, w: 118 * u, h: 24 * u, label: 'Tes sentuh' }]),
       ...(SAVE.cleared.length ? [{ id: 'reset', tiny: true, x: LW / 2 + 65 * u, y: LH - 56 * u, w: 118 * u, h: 24 * u, label: resetArmed() ? 'Ketuk lagi' : 'Reset progres', warn: resetArmed() }] : []),
     ];
   }
   if (G.mode === 'intro') { // tiap pemain punya OK sendiri; mode 2 pemain lanjut setelah keduanya OK
     if (G.introOk[i]) return [];
     const bw = 120 * u, bh = 44 * u;
-    return [G.solo ? { id: 'introok', pi: i, x: LW / 2 - bw / 2, y: LH * .3 + 30 * u, w: bw, h: bh, label: 'OK', hl: true }
+    return [G.solo || sharedScreen() ? { id: 'introok', pi: i, x: LW / 2 - bw / 2, y: LH * .3 + 30 * u, w: bw, h: bh, label: 'OK', hl: true }
       : { id: 'introok', pi: i, x: 12 * u, y: LH / 2 + 44 * u, w: 96 * u, h: 40 * u, label: 'OK', hl: true }];
   }
   if (!host) return [];
@@ -228,7 +228,7 @@ function menuButtons(i) {
   }
   if (G.mode === 'touchtest') return [{ id: 'ttexit', x: LW / 2 - 60 * u, y: LH * .5 + 20 * u, w: 120 * u, h: 40 * u, label: 'SELESAI' }];
   if (G.mode === 'pause') {
-    if (G.solo) { // satu pemain: separuh atas layar kosong
+    if (G.solo || sharedScreen()) { // satu pemain / layar komputer: kolom terpusat
       const bw = 120 * u, bh = 44 * u, y = LH * .3 + 30 * u;
       return [{ id: 'resume', x: LW / 2 - bw - 8 * u, y, w: bw, h: bh, label: 'LANJUT' }, { id: 'quit', x: LW / 2 + 8 * u, y, w: bw, h: bh, label: 'KE JUDUL' },
         // pemain sudah gugur & tinggal menonton bot: boleh menyerah → bangkit di api unggun terakhir (dihitung kalah)
@@ -323,7 +323,7 @@ function uiTap(q) {
 }
 function introOk(i) {
   G.introOk[i] = true;
-  if (G.introOk.every(Boolean)) { G.mode = 'play'; G.introSeen = true; for (const n of IN) { n.tb = [0, 0, 0]; n.joy = null; n.buf = [-1, -1, -1]; } ptrs.clear(); }
+  if (G.introOk.every(Boolean)) { G.mode = 'play'; G.introSeen[SAVE.ctrl] = true; for (const n of IN) { n.tb = [0, 0, 0]; n.joy = null; n.buf = [-1, -1, -1]; } ptrs.clear(); }
 }
 function togglePause() {
   if (G.mode === 'play') { saveGame(); G.mode = 'pause'; for (const n of IN) { n.tb = [0, 0, 0]; n.joy = null; n.buf = [-1, -1, -1]; } ptrs.clear(); }
@@ -336,7 +336,7 @@ function drawTitle() {
   for (const i of frames()) inFrame(i, (LW, LH) => {
     txt('BARA KEMBAR', LW / 2, TITLE_Y(LH), 34 * U, '#e8d9b0', 'center', SERIF, '400');
     txt(G.solo ? 'satu jiwa, satu bara pendamping' : 'dua jiwa, satu nyala', LW / 2, TITLE_Y(LH) + 28 * U, 13 * U, '#b8a888', 'center', SERIF, 'italic 400');
-    txt(G.solo ? 'Pegang HP tegak • Bot menjadi rekanmu' : i === 0 ? (Math.floor(G.t / 4) % 2 ? '⚠ Main berdua? Matikan dulu gestur "usap 3 jari" di HP' : 'Letakkan HP mendatar • kamu P1, rekanmu (P2) di seberang') : 'Kamu P2 • P1 di seberang yang memilih mode & level', LW / 2, LH - 16 * U, 10.5 * U, 'rgba(220,210,190,.6)', 'center', 'sans-serif', '500');
+    txt(sharedScreen() ? (i === 0 ? 'Enter = mulai  •  ◂ ▸ = pilih level  •  Esc = jeda' : 'Kamu P2  •  P1 yang memilih level') : G.solo ? 'Pegang HP tegak • Bot menjadi rekanmu' : i === 0 ? (Math.floor(G.t / 4) % 2 ? '⚠ Main berdua? Matikan dulu gestur "usap 3 jari" di HP' : 'Letakkan HP mendatar • kamu P1, rekanmu (P2) di seberang') : 'Kamu P2 • P1 di seberang yang memilih mode & level', LW / 2, LH - 16 * U, 10.5 * U, 'rgba(220,210,190,.6)', 'center', 'sans-serif', '500');
     const y0 = titleY0(LH);
     if (i === 0) {
       txt('Warnamu', LW / 2, y0 + 176 * U, 10 * U, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '600');
@@ -351,24 +351,28 @@ function drawTitle() {
   });
   drawMenuButtons();
 }
-const waitP1 = (LW, LH) => { ctx.globalAlpha = .6 + Math.sin(G.t * 3) * .3; txt('Menunggu P1…', 12 * U + 48 * U, LH / 2 + 64 * U, 13 * U, '#e8d9b0', 'center', SERIF, 'italic 400'); ctx.globalAlpha = 1; };
+const waitP1 = (LW, LH, col) => { ctx.globalAlpha = .6 + Math.sin(G.t * 3) * .3; txt('Menunggu P1…', col ? LW / 2 : 12 * U + 48 * U, col ? LH * .3 + 52 * U : LH / 2 + 64 * U, 13 * U, '#e8d9b0', 'center', SERIF, 'italic 400'); ctx.globalAlpha = 1; };
 function drawPause() {
   baseT(); ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(0, 0, W, H);
+  // col = tata letak kolom terpusat (solo, atau tiap kolom di layar komputer); selain itu tata letak HP berdua (berhadapan)
+  const col = G.solo || sharedScreen(), gy = canGiveUp() ? 50 * U : 0; // gy: ruang untuk tombol MENYERAH
   for (const i of frames()) inFrame(i, (LW, LH) => {
     if (i === 0 && L && !G.gestureWarn) { // statistik level ini (sesi sekarang) + riwayat tersimpan
       const s = L.stats, a = 'Waktu ' + fmtTime(s.t) + '  ·  kalah ' + s.overs + '×  ·  tumbang ' + s.downs[0] + '/' + s.downs[1];
       const b = 'Total di level ini (' + DIFF_NAME() + '): ' + fmtLong(REC().time[L.idx] || 0) + '  ·  kalah ' + (REC().losses[L.idx] || 0) + '×';
-      const gy = canGiveUp() ? 50 * U : 0; // beri ruang untuk tombol MENYERAH
-      if (G.solo) noteLines(players[0], LW / 2, LH * .3 + 132 * U + gy, 'center', false, false);
-      if (G.solo) { txt(a, LW / 2, LH * .3 + 92 * U + gy, 11 * U, '#e8dcc0', 'center', 'sans-serif', '600'); txt(b, LW / 2, LH * .3 + 110 * U + gy, 10 * U, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '500'); }
+      if (col) { txt(a, LW / 2, LH * .3 + 92 * U + gy, 11 * U, '#e8dcc0', 'center', 'sans-serif', '600'); txt(b, LW / 2, LH * .3 + 110 * U + gy, 10 * U, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '500'); }
       else { txt(a, 124 * U, LH / 2 + 16 * U, 10 * U, '#e8dcc0', 'left', 'sans-serif', '600'); txt(b, 124 * U, LH / 2 + 31 * U, 9 * U, 'rgba(232,217,176,.7)', 'left', 'sans-serif', '500'); }
     }
-    if (G.solo) txt('JEDA', LW / 2, LH * .3, 30 * U, '#e8d9b0', 'center', SERIF, '400');
+    if (col) txt('JEDA', LW / 2, LH * .3, 30 * U, '#e8d9b0', 'center', SERIF, '400');
     else txt('JEDA', 12 * U + 48 * U, LH / 2 + 22 * U, 24 * U, '#e8d9b0', 'center', SERIF, '400');
     if (G.gestureWarn) drawGestureWarn(LW, LH);
-    else drawCallouts(players[i], LW, LH - 226 * U, 1, G.solo); // petunjuk tombol tetap terbaca saat jeda
-    if (!G.solo && !G.gestureWarn) noteLines(players[i], 124 * U, LH / 2 + (i === 0 ? 1 : 16) * U, 'left', false, false); // P1: di atas statistik
-    if (i === 1) waitP1(LW, LH); // tombol LANJUT/KE JUDUL hanya di P1
+    else {
+      if (col) noteLines(players[i], LW / 2, LH * .3 + 132 * U + gy, 'center', false, false);
+      else noteLines(players[i], 124 * U, LH / 2 + (i === 0 ? 1 : 16) * U, 'left', false, false); // P1: di atas statistik
+      if (sharedScreen()) drawKeyHelp(players[i], LW / 2, LH * .3 + 165 * U + gy);
+      else drawCallouts(players[i], LW, LH - 226 * U, 1, G.solo); // petunjuk tombol tetap terbaca saat jeda
+    }
+    if (i === 1) waitP1(LW, LH, col); // tombol LANJUT/KE JUDUL hanya di P1
   });
   drawMenuButtons();
 }
@@ -382,7 +386,7 @@ const EPILOG = [
   'yang lama padam.',
 ];
 const WIN_BTN_T = 11; // detik sampai tombol KE JUDUL muncul
-const winTop = LH => G.solo ? LH * .25 : LH / 2 + 20 * U;
+const winTop = LH => oneFrame() ? LH * .25 : LH / 2 + 20 * U;
 function drawWin() {
   G.winT += 1 / 60;
   emberBg(1 / 60);
@@ -404,7 +408,7 @@ function drawWin() {
 }
 
 // ---------- ringkasan level tamat ----------
-const clearTop = LH => G.solo ? LH * .3 : LH / 2 + 24 * U;
+const clearTop = LH => oneFrame() ? LH * .3 : LH / 2 + 24 * U;
 const fmtTime = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
 function drawClear() {
   G.clearT += 1 / 60; emberBg(1 / 60);
@@ -417,6 +421,7 @@ function drawClear() {
     ['Akurasi panah', s.shots[0] ? Math.round(100 * s.hits[0] / s.shots[0]) : null, s.shots[1] ? Math.round(100 * s.hits[1] / s.shots[1]) : null],
   ];
   for (const i of frames()) inFrame(i, (LW, LH) => {
+    if (LW > 460 * U) { ctx.translate((LW - 460 * U) / 2, 0); LW = 460 * U; } // layar komputer lebar: tabel tetap sempit di tengah
     ctx.globalAlpha = clamp(G.clearT / .8, 0, 1);
     const top = clearTop(LH);
     txt('LEVEL ' + (c.idx + 1) + ' TAMAT', LW / 2, top, 22 * u, '#ffd27a', 'center', SERIF, '400');
@@ -484,11 +489,12 @@ function drawGestureWarn(LW, LH) {
 }
 
 // ---------- layar Catatan: rekor, lama bermain & jumlah kalah tiap level, per kesulitan ----------
-const recTop = LH => G.solo ? LH * .2 : LH / 2 + 16 * U;
+const recTop = LH => oneFrame() ? LH * .2 : LH / 2 + 16 * U;
 function drawRecords() {
   emberBg(1 / 60);
   const rec = SAVE.rec[G.recView || SAVE.diff], u = U;
   for (const i of frames()) inFrame(i, (LW, LH) => {
+    if (LW > 460 * U) { ctx.translate((LW - 460 * U) / 2, 0); LW = 460 * U; } // layar komputer lebar: tabel tetap sempit di tengah
     const top = recTop(LH), X = { lv: LW * .05, nm: LW * .1, st: LW * .53, best: LW * .65, time: LW * .8, loss: LW * .94 };
     txt('CATATAN', LW / 2, top, 20 * u, '#ffd27a', 'center', SERIF, '400');
     let y = top + 66 * u;
@@ -520,16 +526,17 @@ function drawRecords() {
 function drawIntro() {
   baseT(); ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(0, 0, W, H);
   for (const i of frames()) inFrame(i, (LW, LH) => {
-    const done = G.introOk[i];
-    if (G.solo) {
+    const done = G.introOk[i], col = G.solo || sharedScreen();
+    if (col) {
       txt('CARA MAIN', LW / 2, LH * .3, 26 * U, '#e8d9b0', 'center', SERIF, '400');
       noteLines(players[i], LW / 2, LH * .3 + 96 * U, 'center');
     } else {
       txt('CARA MAIN', 12 * U + 48 * U, LH / 2 + 22 * U, 18 * U, '#e8d9b0', 'center', SERIF, '400');
       noteLines(players[i], 124 * U, LH / 2 + 16 * U, 'left', true); // di kanan kolom tombol, seperti statistik layar jeda
     }
-    if (done) { ctx.globalAlpha = .6 + Math.sin(G.t * 3) * .3; txt('Menunggu rekanmu…', G.solo ? LW / 2 : 12 * U + 48 * U, G.solo ? LH * .3 + 52 * U : LH / 2 + 64 * U, 13 * U, '#e8d9b0', 'center', SERIF, 'italic 400'); ctx.globalAlpha = 1; }
-    drawCallouts(players[i], LW, LH - 226 * U, 1, G.solo); // mode 2 pemain: ruang sempit, joystick dijelaskan lewat teks
+    if (done) { ctx.globalAlpha = .6 + Math.sin(G.t * 3) * .3; txt('Menunggu rekanmu…', col ? LW / 2 : 12 * U + 48 * U, col ? LH * .3 + 52 * U : LH / 2 + 64 * U, 13 * U, '#e8d9b0', 'center', SERIF, 'italic 400'); ctx.globalAlpha = 1; }
+    if (sharedScreen()) drawKeyHelp(players[i], LW / 2, LH * .3 + 135 * U);
+    else drawCallouts(players[i], LW, LH - 226 * U, 1, G.solo); // mode 2 pemain: ruang sempit, joystick dijelaskan lewat teks
   });
   drawMenuButtons();
 }
@@ -539,4 +546,36 @@ function noteLines(p, x, y, align, joy, remind = true) {
   const o = p.weapon === 'sword' ? 'Busur' : 'Pedang', c = CALLOUTS[p.weapon === 'sword' ? 'bow' : 'sword'];
   txt('Ganti senjata → ' + o + ': ' + c[0][0] + ' · ' + c[1][0], x, y, (joy ? 10 : 10.5) * U, '#e8dcc0', align, 'sans-serif', '600');
   if (remind) txt('Petunjuk ini bisa dilihat lagi di layar jeda (‖)', x, y + (joy ? 14 : 17) * U, (joy ? 9 : 10) * U, 'rgba(232,217,176,.7)', align, 'sans-serif', '500');
+}
+
+// ---------- daftar tombol keyboard/mouse (layar komputer), pengganti label berpanah ke tombol sentuh ----------
+function keyRows(p) {
+  const [a1, a2] = CALLOUTS[p.weapon];
+  if (mouseCtrl() && p.i === 0) {
+    const walk = mouseWalks();
+    return [
+      walk ? ['Arahkan mouse', 'Bergerak ke arah penunjuk', 'penunjuk dekat karakter = diam'] : ['W A S D', 'Bergerak', 'arah hadap & bidikan mengikuti penunjuk mouse'],
+      ['Klik kiri', a1[0], a1[1]],
+      ['Klik kanan', a2[0], walk ? 'berhenti & menghadap penunjuk' : a2[1]],
+      [walk ? 'Scroll' : 'Q / scroll', 'Ganti senjata', ''],
+      [walk ? 'Klik tengah / E' : 'E', 'Tahan: minum ramuan', ''],
+    ];
+  }
+  const both = G.solo || SAVE.ctrl === 'mkb2'; // satu keyboard satu pemain: kedua set tombol bisa dipakai
+  const k = both ? ['WASD / panah', 'F  /  ,', 'G  /  .', 'H  /  /'] : p.i === 0 ? ['W A S D', 'F', 'G', 'H'] : ['Panah', ',', '.', '/'];
+  return [[k[0], 'Bergerak & menghadap', ''], [k[1], a1[0], a1[1]], [k[2], a2[0], a2[1]], [k[3], 'Ketuk: ganti senjata', 'tahan: minum ramuan']];
+}
+function drawKeyHelp(p, cx, y) {
+  const rows = keyRows(p).concat([['Esc / P', 'Jeda', '']]);
+  const wOf = (t, sz, w) => { ctx.font = `${w} ${sz * U}px sans-serif`; return ctx.measureText(t).width; };
+  // blok dipusatkan menurut lebar teks terpanjang (kolom tombol rata kanan, keterangan rata kiri)
+  const kw = Math.max(...rows.map(r => wOf(r[0], 11, 700)));
+  const dw = Math.max(...rows.map(([, t, s]) => wOf(t + (s ? '  ·  ' : ''), 11, 700) + (s ? wOf(s, 10, 500) : 0)));
+  const kx = cx - (kw + 14 * U + dw) / 2 + kw, dx = kx + 14 * U;
+  rows.forEach(([key, title, sub], n) => {
+    const ry = y + n * 24 * U;
+    txt(key, kx, ry, 11 * U, `rgb(${p.glow})`, 'right', 'sans-serif', '700');
+    txt(title + (sub ? '  ·  ' : ''), dx, ry, 11 * U, '#fff1d0', 'left', 'sans-serif', '700');
+    if (sub) txt(sub, dx + wOf(title + '  ·  ', 11, 700), ry, 10 * U, '#cfc3a8', 'left', 'sans-serif', '500');
+  });
 }

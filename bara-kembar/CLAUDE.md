@@ -39,12 +39,17 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
   HP tegak: P1 di sisi **bawah**, P2 di **atas**. Landscape (desktop): P1 kiri, P2 kanan.
 - Semua posisi sentuhan harus lewat `toL(clientX, clientY)`. Teks/HUD tiap pemain digambar di
   `inFrame(i, (LW, LH) => …)` (bingkai baca pemain i); `screenToFrame` untuk hit-test menu.
+- **Layar komputer** (`sharedScreen()` = kontroler bukan sentuh): bingkai pemain TEGAK dan berdampingan (satu kolom
+  per pemain), tanpa tombol sentuh, HUD di dasar layar. Menu dirancang untuk bingkai tinggi, jadi kolom menu diperkecil
+  (skala `k`, tinggi `FRAME_UNITS`); HUD tidak (`inFrame(i, fn, true)`). Ukuran bingkai: `frameSize(i)`, jangan
+  menganggap `LW = H`. Ringkasan/Catatan/epilog cukup satu bingkai (`frames()`, `oneFrame()`).
 - Kamera (`cam`) membingkai pemain; zoom dibatasi `ZMIN`/`ZMAX` (dihitung di `resize`).
 
 ## Titik masuk
 - **Input:** `IN[i]` = `mx,my` (joystick, −1..1) + `h[0..2]` (tombol serang / tameng-guling / ganti-ramuan).
   `pressed()` memakai buffer `BUFFER_T`; `tapped()` tanpa buffer (khusus sambung kombo).
-  `updatePlayer` membaca `IN`, tidak pernah membaca sentuhan langsung.
+  `updatePlayer` membaca `IN`, tidak pernah membaca sentuhan langsung. `IN[i].aim` (mouse) = arah hadap terpisah
+  dari arah jalan; `null` = arah hadap ikut joystick/WASD. Keyboard: `KEYMAP` + `keyTarget`; mouse: `MOUSE`/`pollMouse`.
 - **Bot:** `update()` memanggil `botUpdate(players[1], players[0], dt)` sebelum `updatePlayer`, dan bot
   hanya menulis `IN[1]` seperti jempol manusia. Skill diundi berkala (`SKILL_EVERY`); senjata cenderung
   kebalikan rekan (`WANT_COMPLEMENT`). Serangan musuh baru perlu dikenali di `botThreat` agar bot bisa menghindar.
@@ -68,9 +73,12 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
   menu, P2 cukup memilih warna dan melihat "Menunggu P1…".
 - **Menu awal berupa halaman HTML, bukan canvas:** arah layar & layar penuh baru bisa ditentukan setelah kontroler
   dipilih (sentuh tegak vs layar komputer). Tombol "PEMAIN & KONTROL" di layar judul kembali ke menu ini.
-  Kontroler dengan `ready:false` tampil redup "Segera". Rencana tahap: (2) tampilan satu layar komputer + keyboard,
-  mouse, mouse+keyboard (arah bidik terpisah dari arah jalan); (3) HP sebagai stik lewat `../pad/`;
-  (4) sentuh mendatar solo; (5) pilihan bahasa.
+  Kontroler dengan `ready:false` tampil redup "Segera". Rencana tahap berikutnya: (3) HP sebagai stik lewat
+  `../pad/`; (4) sentuh mendatar solo; (5) pilihan bahasa. "Cara main" diingat per kontroler (`G.introSeen[ctrl]`);
+  di layar komputer isinya daftar tombol (`keyRows`/`drawKeyHelp`), bukan label berpanah.
+- **Kontroler Mouse (tanpa WASD):** berjalan ke arah penunjuk, diam bila penunjuk dekat karakter; selama klik kiri/kanan
+  ditahan karakter berhenti dan hanya menghadap penunjuk. Tanpa itu, menangkis sambil menjaga jarak mustahil.
+  Tombol mouse dibaca dari `e.buttons` (Pointer Events tak memicu pointerdown untuk tombol kedua); scroll dijeda 0,35 dtk.
 - **Petunjuk tombol hanya di layar Cara main (`intro`) & layar jeda**, tidak lagi muncul di awal level atau tiap
   ganti senjata: dulu label bertumpuk menutupi arena saat pemain ganti senjata di tengah pertarungan. Tiap pemain
   menekan OK sendiri (`G.introOk`); mode 2 pemain baru mulai setelah keduanya OK.

@@ -8,17 +8,19 @@
 const CTRL = {
   touchP: { solo: true, ico: '📱', name: 'Layar sentuh (tegak)', desc: 'Pegang HP tegak, satu tangan untuk joystick, satu untuk tombol', ready: true, touch: true },
   touchL: { solo: true, ico: '📱', name: 'Layar sentuh (mendatar)', desc: 'Pegang HP mendatar seperti konsol genggam', ready: false, touch: true },
-  kb: { solo: true, ico: '⌨️', name: 'Keyboard', desc: 'WASD bergerak, F/G/H untuk aksi', ready: false },
-  mouse: { solo: true, ico: '🖱️', name: 'Mouse', desc: 'Karakter mengikuti penunjuk, klik kiri/kanan untuk aksi', ready: false },
-  mousekb: { solo: true, ico: '⌨️🖱️', name: 'Mouse + keyboard', desc: 'WASD bergerak, mouse membidik', ready: false },
+  kb: { solo: true, ico: '⌨️', name: 'Keyboard', desc: 'WASD bergerak, F/G/H untuk aksi', ready: true },
+  mouse: { solo: true, ico: '🖱️', name: 'Mouse', desc: 'Karakter mengikuti penunjuk, klik kiri/kanan untuk aksi', ready: true },
+  mousekb: { solo: true, ico: '⌨️🖱️', name: 'Mouse + keyboard', desc: 'WASD bergerak, mouse membidik', ready: true },
   touch2: { solo: false, ico: '📱', name: 'Satu HP berdua', desc: 'HP diletakkan mendatar di meja, kalian duduk berhadapan', note: 'Matikan dulu gestur "usap 3 jari" (tangkapan layar) di HP', ready: true, touch: true },
-  kb2: { solo: false, ico: '⌨️', name: 'Satu keyboard berdua', desc: 'P1: WASD + F/G/H · P2: panah + , . /', ready: false },
-  mkb2: { solo: false, ico: '🖱️ ⌨️', name: 'Mouse + keyboard', desc: 'Satu pemain memakai mouse, satu lagi keyboard', ready: false },
+  kb2: { solo: false, ico: '⌨️', name: 'Satu keyboard berdua', desc: 'P1: WASD + F/G/H · P2: panah + , . /', ready: true },
+  mkb2: { solo: false, ico: '🖱️ ⌨️', name: 'Mouse + keyboard', desc: 'P1 memakai mouse, P2 memakai keyboard', ready: true },
   pad: { solo: null, ico: '🖥️📱', name: 'Layar + HP sebagai stik', desc: 'Game tampil di laptop/TV, tiap pemain memakai HP-nya sebagai kontroler', ready: false },
 };
 const CTRL_ORDER = { solo: ['touchP', 'touchL', 'kb', 'mouse', 'mousekb', 'pad'], duo: ['touch2', 'kb2', 'mkb2', 'pad'] };
 const ctrlOk = (id, solo) => { const c = CTRL[id]; return c && c.ready && (c.solo === null || c.solo === solo); };
 const isTouchCtrl = () => !!(CTRL[SAVE.ctrl] && CTRL[SAVE.ctrl].touch);
+// layar komputer: kontroler bukan sentuh. Simpanan lama tanpa SAVE.ctrl dianggap sentuh (perilaku lama).
+const sharedScreen = () => !!(CTRL[SAVE.ctrl] && !CTRL[SAVE.ctrl].touch);
 
 const MENU = document.getElementById('menu');
 function showMenu() {

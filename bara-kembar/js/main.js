@@ -44,7 +44,7 @@ function tryFullscreen() {
   } catch (e) { }
 }
 function startGame(idx) {
-  Snd.init(); tryFullscreen();
+  Snd.init(); if (!sharedScreen()) tryFullscreen(); // layar komputer: tanpa layar penuh paksa & kunci arah
   players[0].weapon = 'sword'; players[1].weapon = 'bow';
   resetBot();
   for (const n of IN) { n.tb = [0, 0, 0]; n.joy = null; n.pv = [1, 1, 1]; n.buf = [-1, -1, -1]; }
@@ -53,7 +53,7 @@ function startGame(idx) {
   loadLevel(idx); G.mode = 'play'; G.fade = 1; G.fadeDir = -1;
   levelIntro();
   // layar "Cara main" sekali per browser dibuka (tidak disimpan), sebelum level berjalan
-  if (!G.introSeen) { G.mode = 'intro'; G.introOk = [false, G.solo]; }
+  if (!G.introSeen[SAVE.ctrl]) { G.mode = 'intro'; G.introOk = [false, G.solo]; }
 }
 
 // =====================================================================

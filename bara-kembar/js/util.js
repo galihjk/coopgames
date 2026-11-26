@@ -47,11 +47,24 @@ function baseT() {
 }
 function toL(cx, cy) { return portrait ? { x: SH - cy, y: cx } : { x: cx, y: cy }; }
 // bingkai baca per pemain: P1 duduk di sisi kiri layar, P2 di sisi kanan (berhadapan)
-function inFrame(i, fn) {
+// Layar komputer (kontroler bukan sentuh, `sharedScreen()`): semua pemain menghadap layar yang sama, jadi bingkai TEGAK,
+// berdampingan (satu kolom per pemain). Menu dirancang untuk bingkai tinggi (HP tegak ±800 satuan U), jadi di layar
+// komputer kolom menu diperkecil (skala k) agar setinggi itu; HUD (hud=true) tidak diperkecil.
+const FRAME_UNITS = 600; // cukup untuk menu terpanjang (jeda + daftar tombol) dengan judul di 30% tinggi
+function sharedFrame(i, hud) {
+  const n = frames().length, cw = W / n, k = hud ? 1 : Math.min(1, H / (FRAME_UNITS * U));
+  return { x0: i * cw, k, LW: cw / k, LH: H / k };
+}
+const frameSize = i => sharedScreen() ? sharedFrame(i) : { LW: H, LH: W };
+function inFrame(i, fn, hud) {
   ctx.save();
+  if (sharedScreen()) { const f = sharedFrame(i, hud); ctx.translate(f.x0, 0); ctx.scale(f.k, f.k); fn(f.LW, f.LH); ctx.restore(); return; }
   if (i === 0) { ctx.translate(W, 0); ctx.rotate(Math.PI / 2); }
   else { ctx.translate(0, H); ctx.rotate(-Math.PI / 2); }
   fn(H, W);
   ctx.restore();
 }
-function screenToFrame(i, q) { return i === 0 ? { x: q.y, y: W - q.x } : { x: H - q.y, y: q.x }; }
+function screenToFrame(i, q) {
+  if (sharedScreen()) { const f = sharedFrame(i); return { x: (q.x - f.x0) / f.k, y: q.y / f.k }; }
+  return i === 0 ? { x: q.y, y: W - q.x } : { x: H - q.y, y: q.x };
+}
