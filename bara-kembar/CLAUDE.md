@@ -20,7 +20,8 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
 - `render.js`: `render()`, `drawStick`/`drawRoll`, `drawEnemy` (memanggil `BEAST_DRAW`), cahaya, `drawOffscreen`.
 - `ui.js`: kontrol & HUD, `drawCallouts` (label+panah tombol), `menuButtons(i)`/`uiTap`, layar ringkasan, epilog, tes sentuh, `drawGestureWarn`, layar Cara main (`drawIntro`).
 - `main.js`: `update`, `updateCam`, `startGame`, `step` (loop `requestAnimationFrame`).
-- `menu.js` (dimuat terakhir): menu awal HTML `#menu` di `index.html`; daftar kontroler `CTRL`, `showMenu`, `pickCtrl`, `isTouchCtrl`.
+- `pad.js`: kontroler Layar + HP lewat `../pad/` (pustaka dimuat saat dipilih): `padStart`, `pollPad` (HP → `IN[i]`), `padStatus`/`padReady`, `padVib`.
+- `menu.js` (dimuat terakhir): menu awal HTML `#menu` di `index.html`; daftar kontroler `CTRL`, `showMenu`, `pickCtrl`, `isTouchCtrl`, lobi QR (`menuLobby`).
 
 ## Alur
 - `G.mode`: `menu` (HTML: jumlah pemain → kontroler, disimpan di `SAVE.solo`/`SAVE.ctrl`) → `title` → (`intro` sekali per browser dibuka, `G.introSeen`) → `play` ⇄ `pause` / `over` (semua tumbang → `respawnAll` di api unggun terakhir) →
@@ -76,12 +77,19 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
   menu, P2 cukup memilih warna dan melihat "Menunggu P1…".
 - **Menu awal berupa halaman HTML, bukan canvas:** arah layar & layar penuh baru bisa ditentukan setelah kontroler
   dipilih (sentuh tegak vs layar komputer). Tombol "PEMAIN & KONTROL" di layar judul kembali ke menu ini.
-  Kontroler dengan `ready:false` tampil redup "Segera". Rencana tahap berikutnya: (3) HP sebagai stik lewat
-  `../pad/`; (4) sentuh mendatar solo; (5) pilihan bahasa. "Cara main" diingat per kontroler (`G.introSeen[ctrl]`);
+  Kontroler dengan `ready:false` tampil redup "Segera". Rencana tahap berikutnya: (4) sentuh mendatar solo;
+  (5) pilihan bahasa. "Cara main" diingat per kontroler (`G.introSeen[ctrl]`);
   di layar komputer isinya daftar tombol (`keyRows`/`drawKeyHelp`), bukan label berpanah.
 - **Kontroler Mouse (tanpa WASD):** berjalan ke arah penunjuk, diam bila penunjuk dekat karakter; selama klik kiri/kanan
   ditahan karakter berhenti dan hanya menghadap penunjuk. Tanpa itu, menangkis sambil menjaga jarak mustahil.
   Tombol mouse dibaca dari `e.buttons` (Pointer Events tak memicu pointerdown untuk tombol kedua); scroll dijeda 0,35 dtk.
+- **Layar + HP (`pad.js`):** HP bernomor 1 = P1, 2 = P2 (solo: hanya 1), HP lain diabaikan. Susunan `TATA.aksi`:
+  kiri gerak, kanan atas SERANG (berarah), kanan bawah TAMENG/GULING (berarah), pinggir GANTI & RAMUAN. Zona berarah
+  yang digeser = `IN[i].aim`. Tiap tekanan dijadikan denyut tombol singkat (`PAD_PULSE`) agar ketukan yang selesai di
+  antara dua paket tetap terbaca; RAMUAN = denyut 0,45 dtk karena game memakai "tahan tombol 3" untuk minum.
+  HP terputus/diam saat bermain → jeda; status tiap HP tampil di layar jeda. Warna di HP = warna karakter (`p.warna`).
+  Uji ujung-ke-ujung: resep `../pad/CLAUDE.md` (iframe game + iframe `/pad/?id=hp1#KODE`); variabel game (let/const)
+  hanya terbaca lewat `Runtime.evaluate` dengan `contextId` iframe game, dan perlu `Emulation.setDeviceMetricsOverride`.
 - **Petunjuk tombol hanya di layar Cara main (`intro`) & layar jeda**, tidak lagi muncul di awal level atau tiap
   ganti senjata: dulu label bertumpuk menutupi arena saat pemain ganti senjata di tengah pertarungan. Tiap pemain
   menekan OK sendiri (`G.introOk`); mode 2 pemain baru mulai setelah keduanya OK.
@@ -110,7 +118,7 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
    Untuk menguji bos langsung: buang musuh biasa, set `L.bossState='active'`, `L.gateState='sealed'`.
    Ringkasan level (`G.mode==='clear'`) perlu `continueAfterClear()` agar lanjut.
 Screenshot: salin `index.html` ke scratchpad dengan `src` absolut, lalu sisipkan skrip yang mengatur
-keadaan (`G.mode`, posisi, `startAtk(...)`) sebelum memotret dengan Edge headless. **Beri `?v=<waktu>` pada tiap
+keadaan (`G.mode`, posisi, `startAtk(...)`) sebelum memotret dengan Edge headless. Uji headless Node perlu `setInterval` palsu dan `dataset: {}` pada elemen palsu (dipakai `menu.js`). **Beri `?v=<waktu>` pada tiap
 `src`**: Edge headless menyimpan JS `file://` di cache, sehingga perubahan terbaru bisa tidak ikut terpotret.
 
 ## Belum ada laporan uji di HP

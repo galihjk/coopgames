@@ -363,6 +363,11 @@ function drawPause() {
       if (col) { txt(a, LW / 2, LH * .3 + 92 * U + gy, 11 * U, '#e8dcc0', 'center', 'sans-serif', '600'); txt(b, LW / 2, LH * .3 + 110 * U + gy, 10 * U, 'rgba(232,217,176,.7)', 'center', 'sans-serif', '500'); }
       else { txt(a, 124 * U, LH / 2 + 16 * U, 10 * U, '#e8dcc0', 'left', 'sans-serif', '600'); txt(b, 124 * U, LH / 2 + 31 * U, 9 * U, 'rgba(232,217,176,.7)', 'left', 'sans-serif', '500'); }
     }
+    if (SAVE.ctrl === 'pad' && i === 0 && typeof padStatus === 'function') { // Layar + HP: status sambungan tiap HP
+      const st = [0, 1].slice(0, G.solo ? 1 : 2).map(k => 'HP P' + (k + 1) + ': ' + padStatus(k)).join('   ·   ');
+      txt(st, LW / 2, LH * .3 - 42 * U, 11 * U, padReady() ? '#7ee07a' : '#ff9a80', 'center', 'sans-serif', '700');
+      if (!padReady()) txt('Pindai lagi QR-nya (PEMAIN & KONTROL di layar judul), atau buka lagi halaman pengendali di HP', LW / 2, LH * .3 - 26 * U, 9.5 * U, 'rgba(232,217,176,.75)', 'center', 'sans-serif', '500');
+    }
     if (col) txt('JEDA', LW / 2, LH * .3, 30 * U, '#e8d9b0', 'center', SERIF, '400');
     else txt('JEDA', 12 * U + 48 * U, LH / 2 + 22 * U, 24 * U, '#e8d9b0', 'center', SERIF, '400');
     if (G.gestureWarn) drawGestureWarn(LW, LH);
@@ -551,6 +556,10 @@ function noteLines(p, x, y, align, joy, remind = true) {
 // ---------- daftar tombol keyboard/mouse (layar komputer), pengganti label berpanah ke tombol sentuh ----------
 function keyRows(p) {
   const [a1, a2] = CALLOUTS[p.weapon];
+  if (SAVE.ctrl === 'pad') return [ // HP dipegang mendatar
+    ['HP kiri', 'Bergerak', ''], ['HP kanan atas', a1[0], a1[1] + ' · geser = bidik'], ['HP kanan bawah', a2[0], 'geser = arah'],
+    ['Pinggir atas', 'Ganti senjata', ''], ['Pinggir bawah', 'Minum ramuan', ''],
+  ];
   if (mouseCtrl() && p.i === 0) {
     const walk = mouseWalks();
     return [

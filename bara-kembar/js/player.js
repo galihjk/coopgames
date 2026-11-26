@@ -270,7 +270,7 @@ function hurtPlayer(p, dmg, src, o = {}) {
   const front = o.omni || Math.abs(angDiff(p.face, a)) < 1.3; // omni: serangan melingkar (cincin) tak punya arah
   if (p.state === 'block' && front && !o.unblockable) {
     if (p.blockT < RULE.parryWin() && o.parryable) {
-      Snd.parry(); hitStop(.13); shake(6); vib(30); p.parryFx = .4;
+      Snd.parry(); hitStop(.13); shake(6); vib(30, p.i); p.parryFx = .4;
       sparks(p.x + Math.cos(a) * 14, p.y + Math.sin(a) * 14, 22, '#fff6c8');
       p.stam = Math.min(p.maxStam, p.stam + 10);
       L.stats.parries[p.i]++;
@@ -287,7 +287,7 @@ function hurtPlayer(p, dmg, src, o = {}) {
   p.hp -= dmg; p.flash = .2; p.iframe = .4;
   const kn = o.knock || 150; p.kx = -Math.cos(a) * kn; p.ky = -Math.sin(a) * kn;
   p.state = 'stag'; p.st = 0; p.stagDur = o.stagger || .34; p.b3T = -1; p.swapped = false;
-  Snd.hurt(); hitStop(.07); shake(5); vib(45);
+  Snd.hurt(); hitStop(.07); shake(5); vib(45, p.i);
   blood(p.x, p.y, a + Math.PI, 10, '#8a1010');
   if (p.hp <= 0) downPlayer(p);
   return 'hit';

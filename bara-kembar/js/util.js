@@ -15,7 +15,8 @@ const angDiff = (a, b) => { let d = (b - a) % TAU; if (d > Math.PI) d -= TAU; if
 const turnTo = (c, t, m) => c + clamp(angDiff(c, t), -m, m);
 const ease = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const easeOut = t => 1 - Math.pow(1 - t, 3);
-function vib(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { } }
+// getar: HP yang dipakai bermain; mode Layar + HP: getarkan HP milik pemain i (bukan perangkat layar)
+function vib(ms, i) { if (i != null && typeof padOn === 'function' && padOn()) { padVib(i, ms); return; } try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { } }
 
 // ---------- canvas / orientasi ----------
 const cv = document.getElementById('c');

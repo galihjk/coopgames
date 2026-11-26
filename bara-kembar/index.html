@@ -35,6 +35,15 @@ canvas{display:block;touch-action:none}
 #menu .quick{border-color:#ffb347;background:rgba(96,42,14,.92);text-align:center;font:400 22px Georgia,serif}
 #menu .quick small{font:13px system-ui,sans-serif}
 #menu .back{width:auto;padding:8px 14px;font-size:14px}
+#menu .lobby{display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:center}
+#menu .qr{background:#fff;border-radius:10px;padding:8px;width:180px;height:180px;display:flex;align-items:center;justify-content:center;color:#333;font-size:13px}
+#menu .qr svg{width:100%;height:100%}
+#menu .kode{font:700 40px/1 ui-monospace,monospace;letter-spacing:.2em;color:#ffd27a}
+#menu .slot{margin-top:8px;font-size:14px}
+#menu .slot b{display:inline;font-size:14px}
+#menu .ok{color:#7ee07a}#menu .no{color:#ff9a80}
+#menu p.note{font-size:13px;color:#cfc3a8;margin:14px 0}
+#menu .quick:disabled{border-color:rgba(232,217,176,.3);background:rgba(30,20,16,.85)}
 </style>
 </head>
 <body>
@@ -56,6 +65,7 @@ canvas{display:block;touch-action:none}
 <script src="js/render.js"></script>   <!-- render dunia, stickman, cahaya -->
 <script src="js/ui.js"></script>       <!-- kontrol, HUD, menu -->
 <script src="js/main.js"></script>     <!-- update, kamera, start, loop -->
+<script src="js/pad.js"></script>      <!-- kontroler Layar + HP (memuat ../pad/ saat dipilih) -->
 <script src="js/menu.js"></script>     <!-- menu awal HTML: jumlah pemain → kontroler -->
 </body>
 </html>

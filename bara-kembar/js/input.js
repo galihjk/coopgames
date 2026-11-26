@@ -152,7 +152,7 @@ function pollInput() {
     if (n.joy) { mx = n.joy.dx; my = n.joy.dy; }
     n.mx = mx; n.my = my;
   }
-  pollMouse();
+  pollMouse(); pollPad();
 }
 // mouse → IN[0]: klik kiri/kanan/tengah = tombol 1/2/3, arah hadap = ke penunjuk.
 // Kontroler "Mouse" (tanpa WASD): berjalan ke arah penunjuk (diam bila penunjuk dekat karakter);

@@ -14,7 +14,7 @@ const CTRL = {
   touch2: { solo: false, ico: '📱', name: 'Satu HP berdua', desc: 'HP diletakkan mendatar di meja, kalian duduk berhadapan', note: 'Matikan dulu gestur "usap 3 jari" (tangkapan layar) di HP', ready: true, touch: true },
   kb2: { solo: false, ico: '⌨️', name: 'Satu keyboard berdua', desc: 'P1: WASD + F/G/H · P2: panah + , . /', ready: true },
   mkb2: { solo: false, ico: '🖱️ ⌨️', name: 'Mouse + keyboard', desc: 'P1 memakai mouse, P2 memakai keyboard', ready: true },
-  pad: { solo: null, ico: '🖥️📱', name: 'Layar + HP sebagai stik', desc: 'Game tampil di laptop/TV, tiap pemain memakai HP-nya sebagai kontroler', ready: false },
+  pad: { solo: null, ico: '🖥️📱', name: 'Layar + HP sebagai stik', desc: 'Game tampil di laptop/TV, tiap pemain memakai HP-nya sebagai stik (WiFi yang sama)', ready: true },
 };
 const CTRL_ORDER = { solo: ['touchP', 'touchL', 'kb', 'mouse', 'mousekb', 'pad'], duo: ['touch2', 'kb2', 'mkb2', 'pad'] };
 const ctrlOk = (id, solo) => { const c = CTRL[id]; return c && c.ready && (c.solo === null || c.solo === solo); };
@@ -31,6 +31,7 @@ function showMenu() {
 }
 // step null = pilih jumlah pemain; true/false = daftar kontroler mode solo/berdua
 function menuStep(solo) {
+  MENU.dataset.step = 'pilih'; lobbyHTML = '';
   const h = [];
   if (solo === null) {
     if (ctrlOk(SAVE.ctrl, !!SAVE.solo)) h.push(`<button class="quick" data-go="${SAVE.ctrl}">▶ Main lagi<small>${SAVE.solo ? '1 pemain + bot' : '2 pemain'} · ${CTRL[SAVE.ctrl].name}</small></button>`);
@@ -52,6 +53,7 @@ MENU.addEventListener('click', e => {
   Snd.init();
   if (b.classList.contains('back')) return menuStep(null);
   if (b.dataset.solo != null) return menuStep(b.dataset.solo === '1');
+  if (b.dataset.lobby) { MENU.hidden = true; G.mode = 'title'; Snd.swap(); return; }
   if (b.dataset.go) {
     const solo = b.dataset.mode != null ? b.dataset.mode === '1' : !!SAVE.solo;
     pickCtrl(b.dataset.go, solo);
@@ -59,7 +61,29 @@ MENU.addEventListener('click', e => {
 });
 function pickCtrl(id, solo) {
   G.solo = solo; SAVE.solo = solo; SAVE.ctrl = id; saveGame();
+  if (id === 'pad') { menuLobby(); return; } // HP harus tersambung dulu
   MENU.hidden = true; G.mode = 'title'; Snd.swap();
   if (CTRL[id].touch) tryFullscreen(); // sentuh: layar penuh + kunci tegak (butuh ketukan pengguna, ini salah satunya)
 }
+// ---------- lobi Layar + HP: QR, kode ruang, status tiap HP ----------
+let lobbyQR = '';
+function menuLobby() {
+  MENU.dataset.step = 'lobby';
+  padStart(() => { if (!MENU.hidden && MENU.dataset.step === 'lobby') renderLobby(); });
+  renderLobby();
+}
+let lobbyHTML = '';
+function renderLobby() {
+  if (PADS.url && !lobbyQR && typeof qrcode === 'function') { const q = qrcode(0, 'M'); q.addData(PADS.url); q.make(); lobbyQR = q.createSvgTag({ cellSize: 4, margin: 0, scalable: true }); }
+  const n = G.solo ? 1 : 2, ready = padReady();
+  const slots = [0, 1].slice(0, n).map(i => { const st = padStatus(i); return `<div class="slot">P${i + 1}: <b class="${st === 'tersambung' ? 'ok' : 'no'}">${st}</b></div>`; }).join('');
+  const html = `<div class="inner"><button class="back">‹ Ganti kontroler</button>
+    <h2>${G.solo ? '1 pemain + bot' : '2 pemain'}: sambungkan HP</h2>
+    <div class="lobby"><div class="qr">${lobbyQR || (PADS.galat ? '⚠' : 'Membuat ruang…')}</div>
+      <div><div class="kode">${PADS.kode || '····'}</div><small>${PADS.url ? PADS.url.replace(/^https?:\/\//, '') : ''}</small>${slots}</div></div>
+    <p class="note">${PADS.galat ? '⚠ ' + PADS.galat : `Pindai QR dengan kamera HP${n > 1 ? ' (HP pertama = P1, kedua = P2)' : ''}, atau buka alamat di atas lalu masukkan kodenya. HP dan laptop harus tersambung ke WiFi yang sama (hotspot HP tidak bisa). Pegang HP mendatar.`}</p>
+    <button class="quick" data-lobby="1"${ready ? '' : ' disabled'}>${ready ? '▶ Lanjut' : 'Menunggu HP…'}</button></div>`;
+  if (html !== lobbyHTML) MENU.querySelector('.step').innerHTML = lobbyHTML = html; // tulis ulang hanya bila berubah (klik tidak hilang)
+}
+setInterval(() => { if (!MENU.hidden && MENU.dataset.step === 'lobby') renderLobby(); }, 500);
 showMenu();
