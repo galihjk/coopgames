@@ -10,10 +10,33 @@
 <style>
 html,body{margin:0;height:100%;background:#000;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;overscroll-behavior:none}
 canvas{display:block;touch-action:none}
+/* menu awal: halaman web biasa (responsif), di atas canvas */
+#menu{position:fixed;inset:0;overflow-y:auto;touch-action:pan-y;background:radial-gradient(ellipse at 50% 40%,rgba(120,50,20,.45),rgba(7,5,10,.92) 70%);color:#e8d9b0;font:15px/1.4 system-ui,sans-serif;display:flex;justify-content:center}
+#menu[hidden]{display:none}
+#menu .wrap{width:100%;max-width:560px;padding:max(28px,env(safe-area-inset-top)) 16px 32px;box-sizing:border-box}
+#menu h1{font:400 clamp(34px,9vw,52px) Georgia,serif;text-align:center;margin:8px 0 2px;letter-spacing:.04em}
+#menu .tag{text-align:center;font:italic 15px Georgia,serif;color:#b8a888;margin:0 0 26px}
+#menu h2{font:600 13px system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:rgba(232,217,176,.7);margin:22px 0 10px}
+#menu button{font:inherit;color:inherit;background:rgba(30,20,16,.85);border:1.5px solid rgba(232,217,176,.45);border-radius:10px;padding:14px;text-align:left;cursor:pointer;width:100%}
+#menu button:not(:disabled):hover,#menu button:not(:disabled):active{border-color:#ffb347;background:rgba(96,42,14,.9)}
+#menu button:disabled{opacity:.45;cursor:default}
+#menu b{display:block;font-size:17px;font-weight:700}
+#menu small{display:block;color:#cfc3a8;font-size:13px;margin-top:3px}
+#menu small.warn{color:#ffb347}
+#menu em{font-style:normal;font-size:11px;font-weight:600;border:1px solid currentColor;border-radius:4px;padding:1px 5px;margin-left:8px;vertical-align:2px;color:#b8a888}
+#menu .cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#menu .cards button{text-align:center;padding:22px 10px}
+#menu .list{display:grid;gap:8px}
+#menu .list button{display:flex;gap:12px;align-items:center}
+#menu .ico{flex:0 0 58px;font-size:21px;white-space:nowrap;text-align:center}
+#menu .quick{border-color:#ffb347;background:rgba(96,42,14,.92);text-align:center;font:400 22px Georgia,serif}
+#menu .quick small{font:13px system-ui,sans-serif}
+#menu .back{width:auto;padding:8px 14px;font-size:14px}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="menu" hidden><div class="wrap"><h1>BARA KEMBAR</h1><p class="tag">souls-like co-op · bersama rekan atau bot</p><div class="step"></div></div></div>
 <!-- Urutan penting: file di bawah memakai variabel global dari file di atasnya. -->
 <script src="js/util.js"></script>     <!-- util, canvas, orientasi -->
 <script src="js/world.js"></script>    <!-- konstanta dunia, data level, simpanan -->
@@ -30,5 +53,6 @@ canvas{display:block;touch-action:none}
 <script src="js/render.js"></script>   <!-- render dunia, stickman, cahaya -->
 <script src="js/ui.js"></script>       <!-- kontrol, HUD, menu -->
 <script src="js/main.js"></script>     <!-- update, kamera, start, loop -->
+<script src="js/menu.js"></script>     <!-- menu awal HTML: jumlah pemain → kontroler -->
 </body>
 </html>

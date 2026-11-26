@@ -423,6 +423,7 @@ function worldT(sx = 0, sy = 0) {
 }
 function render() {
   baseT(); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  if (G.mode === 'menu') { baseT(); emberBg(1 / 60); return; } // menu HTML di atasnya
   if (G.mode === 'title') { drawTitle(); drawFade(); return; }
   if (G.mode === 'win') { drawWin(); drawFade(); return; }
   if (G.mode === 'clear') { drawClear(); drawFade(); return; }

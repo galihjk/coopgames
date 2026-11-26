@@ -20,9 +20,10 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
 - `render.js`: `render()`, `drawStick`/`drawRoll`, `drawEnemy` (memanggil `BEAST_DRAW`), cahaya, `drawOffscreen`.
 - `ui.js`: kontrol & HUD, `drawCallouts` (label+panah tombol), `menuButtons(i)`/`uiTap`, layar ringkasan, epilog, tes sentuh, `drawGestureWarn`, layar Cara main (`drawIntro`).
 - `main.js`: `update`, `updateCam`, `startGame`, `step` (loop `requestAnimationFrame`).
+- `menu.js` (dimuat terakhir): menu awal HTML `#menu` di `index.html`; daftar kontroler `CTRL`, `showMenu`, `pickCtrl`, `isTouchCtrl`.
 
 ## Alur
-- `G.mode`: `title` → (`intro` sekali per browser dibuka, `G.introSeen`) → `play` ⇄ `pause` / `over` (semua tumbang → `respawnAll` di api unggun terakhir) →
+- `G.mode`: `menu` (HTML: jumlah pemain → kontroler, disimpan di `SAVE.solo`/`SAVE.ctrl`) → `title` → (`intro` sekali per browser dibuka, `G.introSeen`) → `play` ⇄ `pause` / `over` (semua tumbang → `respawnAll` di api unggun terakhir) →
   `clear` (ringkasan level) → `play` level berikutnya, atau `win` (epilog) setelah level terakhir.
   `touchtest` (Tes sentuh) dan `records` (Catatan, tab kesulitan di `G.recView`) dibuka dari layar judul.
 - Level: jelajah → nyalakan api unggun (checkpoint) → kedua pemain di depan kabut → masuk arena,
@@ -65,6 +66,11 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
   Mode solo **tanpa tali** (dulu bot & pemain saling mengunci di peta berlantai); bot menyusul via `botWarp`.
 - **Mode solo:** hanya P1 yang tampil (HUD, kontrol, menu); P2 = bot. Mode 2 pemain: hanya P1 memegang
   menu, P2 cukup memilih warna dan melihat "Menunggu P1…".
+- **Menu awal berupa halaman HTML, bukan canvas:** arah layar & layar penuh baru bisa ditentukan setelah kontroler
+  dipilih (sentuh tegak vs layar komputer). Tombol "PEMAIN & KONTROL" di layar judul kembali ke menu ini.
+  Kontroler dengan `ready:false` tampil redup "Segera". Rencana tahap: (2) tampilan satu layar komputer + keyboard,
+  mouse, mouse+keyboard (arah bidik terpisah dari arah jalan); (3) HP sebagai stik lewat `../pad/`;
+  (4) sentuh mendatar solo; (5) pilihan bahasa.
 - **Petunjuk tombol hanya di layar Cara main (`intro`) & layar jeda**, tidak lagi muncul di awal level atau tiap
   ganti senjata: dulu label bertumpuk menutupi arena saat pemain ganti senjata di tengah pertarungan. Tiap pemain
   menekan OK sendiri (`G.introOk`); mode 2 pemain baru mulai setelah keduanya OK.
@@ -85,7 +91,7 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
 1. Baca urutan file dari `<script src>` di `index.html`, lalu `vm.runInContext` tiap file ke satu context
    (let/const global dibagi antar-file, sama seperti di browser).
 2. Palsukan: `document.getElementById`/`createElement` → objek `{getContext, style, addEventListener,
-   setPointerCapture}`; `getContext` → Proxy no-op (sediakan `measureText`); `innerWidth/innerHeight`
+   setPointerCapture}`; `getContext` → Proxy no-op (sediakan `measureText`), `querySelector: () => ({})` (dipakai `menu.js`); `innerWidth/innerHeight`
    (400×800 = HP tegak), `devicePixelRatio`, `localStorage`, `navigator`, `screen`, `performance.now`
    (jam simulasi), `requestAnimationFrame` no-op, `setTimeout` manual (dipakai portal setelah bos).
 3. `SAVE.diff='normal'; G.solo=true; startGame(idx)`, lalu panggil `step(now)` per frame (now += 1000/60).
@@ -96,5 +102,5 @@ Screenshot: salin `index.html` ke scratchpad dengan `src` absolut, lalu sisipkan
 keadaan (`G.mode`, posisi, `startAtk(...)`) sebelum memotret dengan Edge headless.
 
 ## Belum ada laporan uji di HP
-- Level 7–10 (bos & monster khas), mode Santai, layar ringkasan & epilog.
+- Sudah dilaporkan: Level 1–10 tamat di Normal, mode solo. Belum: mode Santai, Level 7–10 berdua.
 - Main berdua penuh setelah gestur "usap 3 jari" dimatikan.

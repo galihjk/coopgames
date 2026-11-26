@@ -197,7 +197,7 @@ function menuButtons(i) {
     // pemilih level: ◂ [LEVEL n · nama] ▸, titik progres, MULAI, lalu warna
     const bw = Math.min(300 * u, LW * .86), x0 = LW / 2 - bw / 2, y0 = titleY0(LH), aw = 46 * u, open = isUnlocked(G.sel);
     return [
-      { id: 'mode', x: x0, y: y0, w: bw / 2 - 4 * u, h: 38 * u, cap: 'MODE  ⇄', label: G.solo ? 'SOLO + BOT' : '2 PEMAIN' },
+      { id: 'mode', x: x0, y: y0, w: bw / 2 - 4 * u, h: 38 * u, cap: 'PEMAIN & KONTROL', label: G.solo ? 'SOLO + BOT' : '2 PEMAIN' },
       { id: 'diff', x: x0 + bw / 2 + 4 * u, y: y0, w: bw / 2 - 4 * u, h: 38 * u, cap: 'KESULITAN  ⇄', label: isEasy() ? 'SANTAI' : 'NORMAL' },
       { id: 'prev', x: x0, y: y0 + 46 * u, w: aw, h: 50 * u, label: '◂' },
       { id: 'lvl', x: x0 + aw + 8 * u, y: y0 + 46 * u, w: bw - 2 * aw - 16 * u, h: 50 * u, label: 'LEVEL ' + (G.sel + 1), sub: open ? levelSub(G.sel) : levelLockText(G.sel), done: SAVE.cleared.includes(G.sel), off: !open },
@@ -299,7 +299,7 @@ function uiTap(q) {
       if (f.x >= b.x && f.x <= b.x + b.w && f.y >= b.y && f.y <= b.y + b.h) {
         if (b.off || (b.swatch && !setColor(b.pi, b.k))) { Snd.fail(); return; }
         Snd.swap();
-        if (b.id === 'mode') toggleSolo();
+        if (b.id === 'mode') showMenu();
         else if (b.id === 'reset') resetProgress();
         else if (b.id === 'ttest') { resetTouchTest(); G.mode = 'touchtest'; }
         else if (b.id === 'records') { G.recView = SAVE.diff; G.mode = 'records'; }

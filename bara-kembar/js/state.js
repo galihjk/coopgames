@@ -10,7 +10,6 @@ G.sel = Math.max(0, LEVELS.findIndex((_, k) => !SAVE.cleared.includes(k) && isUn
 // statistik level berjalan, per pemain [P1, P2/bot]
 function newStats() { return { t: 0, overs: 0, bonfires: 0, downs: [0, 0], parries: [0, 0], dmg: [0, 0], kills: [0, 0], shots: [0, 0], hits: [0, 0] }; }
 function frames() { return G.solo ? [0] : [0, 1]; }
-function toggleSolo() { G.solo = !G.solo; SAVE.solo = G.solo; saveGame(); }
 let L = null;
 const cam = { x: 0, y: 0, z: 1 };
 const players = [];
