@@ -45,7 +45,7 @@ function menuStep(solo) {
     }
     h.push('</div>');
   }
-  MENU.querySelector('.step').innerHTML = h.join('');
+  MENU.querySelector('.step').innerHTML = '<div class="inner">' + h.join('') + '</div>';
 }
 MENU.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || b.disabled) return;

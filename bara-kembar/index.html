@@ -13,7 +13,10 @@ canvas{display:block;touch-action:none}
 /* menu awal: halaman web biasa (responsif), di atas canvas */
 #menu{position:fixed;inset:0;overflow-y:auto;touch-action:pan-y;background:radial-gradient(ellipse at 50% 40%,rgba(120,50,20,.45),rgba(7,5,10,.92) 70%);color:#e8d9b0;font:15px/1.4 system-ui,sans-serif;display:flex;justify-content:center}
 #menu[hidden]{display:none}
-#menu .wrap{width:100%;max-width:560px;padding:max(28px,env(safe-area-inset-top)) 16px 32px;box-sizing:border-box}
+#menu .wrap{width:100%;max-width:560px;min-height:100%;padding:max(28px,env(safe-area-inset-top)) 16px 32px;box-sizing:border-box;display:flex;flex-direction:column}
+/* judul tetap di atas; pilihan dipusatkan di sisa tinggi (margin auto = tetap bisa digulir bila daftar lebih panjang dari layar) */
+#menu .step{flex:1;display:flex;flex-direction:column}
+#menu .inner{margin:auto 0;padding-bottom:6vh}
 #menu h1{font:400 clamp(34px,9vw,52px) Georgia,serif;text-align:center;margin:8px 0 2px;letter-spacing:.04em}
 #menu .tag{text-align:center;font:italic 15px Georgia,serif;color:#b8a888;margin:0 0 26px}
 #menu h2{font:600 13px system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:rgba(232,217,176,.7);margin:22px 0 10px}
