@@ -43,6 +43,9 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
   per pemain), tanpa tombol sentuh, HUD di dasar layar. Menu dirancang untuk bingkai tinggi, jadi kolom menu diperkecil
   (skala `k`, tinggi `FRAME_UNITS`); HUD tidak (`inFrame(i, fn, true)`). Ukuran bingkai: `frameSize(i)`, jangan
   menganggap `LW = H`. Ringkasan/Catatan/epilog cukup satu bingkai (`frames()`, `oneFrame()`).
+- **Kamera mode solo berpusat pada P1** (`updateCam`): bot hanya memengaruhi zoom (bingkai simetris di sekitar P1) dan
+  bos tetap menarik sedikit. Dulu kamera membidik titik tengah P1–bot sehingga layar ikut goyah tiap bot bergerak.
+  HP tegak (sentuh): P1 diangkat `TOUCH_LIFT` ke tengah area yang tidak tertutup HUD/tombol. Mode 2 pemain: bingkai keduanya.
 - Kamera (`cam`) membingkai pemain; zoom dibatasi `ZMIN`/`ZMAX` (dihitung di `resize`).
 
 ## Titik masuk
@@ -107,7 +110,8 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
    Untuk menguji bos langsung: buang musuh biasa, set `L.bossState='active'`, `L.gateState='sealed'`.
    Ringkasan level (`G.mode==='clear'`) perlu `continueAfterClear()` agar lanjut.
 Screenshot: salin `index.html` ke scratchpad dengan `src` absolut, lalu sisipkan skrip yang mengatur
-keadaan (`G.mode`, posisi, `startAtk(...)`) sebelum memotret dengan Edge headless.
+keadaan (`G.mode`, posisi, `startAtk(...)`) sebelum memotret dengan Edge headless. **Beri `?v=<waktu>` pada tiap
+`src`**: Edge headless menyimpan JS `file://` di cache, sehingga perubahan terbaru bisa tidak ikut terpotret.
 
 ## Belum ada laporan uji di HP
 - Sudah dilaporkan: Level 1–10 tamat di Normal, mode solo. Belum: mode Santai, Level 7–10 berdua.

@@ -19,15 +19,28 @@ function update(dt) {
   if (L.bossState === 'active') { G.beatT -= dt; if (G.beatT <= 0) { G.beatT = .5; Snd.beat(G.beatN++); } }
   if (G.mode === 'over') { G.overT += dt; if (G.overT > 3.6) respawnAll(); }
 }
+// Mode solo: pusat kamera = P1 (bot yang berlari/berguling tidak lagi menggeser layar); bot hanya memengaruhi zoom
+// supaya tetap terbingkai saat dekat (kalau jauh, ada panah penunjuk). Mode 2 pemain: bingkai keduanya.
+const SOLO_NEAR = 480;
+// HP tegak (sentuh): sisi bawah layar tertutup joystick/tombol/jempol, jadi P1 digeser ke tengah area yang terlihat.
+// Sisi bawah HP = x logis kecil (lihat baseT), maka kamera digeser ke −x.
+const TOUCH_LIFT = 125; // ≈ setengah tinggi area HUD+tombol (±250 U dari bawah)
 function updateCam(dt) {
   let list = players.filter(p => !p.dead); if (!list.length) list = players;
-  // solo: kamera berpusat pada pemain; bot hanya ikut dibingkai kalau cukup dekat (kalau jauh, ada panah penunjuk)
-  if (G.solo && players[0].alive && dist(players[0], players[1]) > 480) list = [players[0]];
-  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
-  for (const p of list) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
-  let tx = (x0 + x1) / 2, ty = (y0 + y1) / 2;
+  const p0 = players[0], soloFocus = G.solo && p0.alive;
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, tx, ty;
+  if (soloFocus) {
+    tx = p0.x; ty = p0.y;
+    const b = players[1], near = b.alive && dist(p0, b) <= SOLO_NEAR;
+    const hx = near ? Math.abs(b.x - p0.x) : 0, hy = near ? Math.abs(b.y - p0.y) : 0; // bingkai simetris di sekitar P1
+    x0 = p0.x - hx; x1 = p0.x + hx; y0 = p0.y - hy; y1 = p0.y + hy;
+  } else {
+    for (const p of list) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
+    tx = (x0 + x1) / 2; ty = (y0 + y1) / 2;
+  }
   for (const b of L.bossState === 'active' ? aliveBosses() : []) { tx = lerp(tx, b.x, .18 / aliveBosses().length); ty = lerp(ty, b.y, .18 / aliveBosses().length); }
   const tz = clamp(Math.min(W * .6 / (x1 - x0 + 170), H * .8 / (y1 - y0 + 150)), ZMIN / (bossFight() && !G.solo ? BOSS_SLACK : 1), ZMAX);
+  if (soloFocus && portrait && !sharedScreen()) tx -= TOUCH_LIFT * U / Math.max(cam.z, .01);
   const k = 1 - Math.pow(.02, dt);
   cam.x = lerp(cam.x, tx, k); cam.y = lerp(cam.y, ty, k); cam.z = lerp(cam.z, tz, 1 - Math.pow(.1, dt));
 }
