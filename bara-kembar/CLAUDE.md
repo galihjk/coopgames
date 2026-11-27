@@ -43,7 +43,8 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
 - **Layar komputer** (`sharedScreen()` = kontroler bukan sentuh): bingkai pemain TEGAK dan berdampingan (satu kolom
   per pemain), tanpa tombol sentuh, HUD di dasar layar. Menu dirancang untuk bingkai tinggi, jadi kolom menu diperkecil
   (skala `k`, tinggi `FRAME_UNITS`); HUD tidak (`inFrame(i, fn, true)`). Ukuran bingkai: `frameSize(i)`, jangan
-  menganggap `LW = H`. Ringkasan/Catatan/epilog cukup satu bingkai (`frames()`, `oneFrame()`).
+  menganggap `LW = H`. Ringkasan/Catatan/epilog cukup satu bingkai (`frames()`, `oneFrame()`). Bar bos & banner
+  milik bersama: di layar komputer berdua digambar sekali di atas layar (`oneScreenTop`/`drawSharedTop`), bukan per kolom.
 - **Kamera mode solo berpusat pada P1** (`updateCam`): bot hanya memengaruhi zoom (bingkai simetris di sekitar P1) dan
   bos tetap menarik sedikit. Dulu kamera membidik titik tengah P1–bot sehingga layar ikut goyah tiap bot bergerak.
   HP tegak (sentuh): P1 diangkat `TOUCH_LIFT` ke tengah area yang tidak tertutup HUD/tombol. Mode 2 pemain: bingkai keduanya.
@@ -87,7 +88,8 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
   (`layoutControls`), label petunjuk di atas tombol (`calloutBase`). Menu diperkecil lebih sedikit (`FRAME_UNITS_HP`)
   karena layar pendek. Arah dikunci `landscape`; bila HP tetap tegak, layar hanya menampilkan "Putar HP".
 - **Layar + HP (`pad.js`):** HP bernomor 1 = P1, 2 = P2 (solo: hanya 1), HP lain diabaikan. Susunan `TATA.aksi`:
-  kiri gerak, kanan atas SERANG (berarah), kanan bawah TAMENG/GULING (berarah), pinggir GANTI & RAMUAN. Zona berarah
+  kiri gerak, kanan atas TAMENG/GULING (berarah), kanan bawah SERANG (berarah; dibalik atas permintaan pemilik setelah
+  uji berdua), pinggir GANTI & RAMUAN. Zona berarah
   yang digeser = `IN[i].aim`. Tiap tekanan dijadikan denyut tombol singkat (`PAD_PULSE`) agar ketukan yang selesai di
   antara dua paket tetap terbaca; RAMUAN = denyut 0,45 dtk karena game memakai "tahan tombol 3" untuk minum.
   HP terputus/diam saat bermain → jeda; status tiap HP tampil di layar jeda. Warna di HP = warna karakter (`p.warna`).

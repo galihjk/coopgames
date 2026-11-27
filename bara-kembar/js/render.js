@@ -515,6 +515,7 @@ function render() {
   drawOffscreen();
   drawControls();
   for (const i of frames()) inFrame(i, (LW, LH) => drawHUD(players[i], LW, LH), true);
+  drawSharedTop();
   drawPauseBtn();
   if (G.mode === 'over') drawOver();
   if (G.mode === 'pause') drawPause();

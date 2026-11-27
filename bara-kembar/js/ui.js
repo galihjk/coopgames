@@ -78,15 +78,9 @@ function drawHUD(p, LW, LH) {
     ctx.fillStyle = q.alive ? '#3fb8b0' : '#ff8a70';
     ctx.fillRect(qx, qy, qw * clamp(q.alive ? q.hp / q.maxHp : q.down ? q.downT / RULE.downT() : 0, 0, 1), 5 * u);
   }
-  // bar bos (level kembar: ditumpuk, satu bar per bos yang masih hidup)
-  const bosses = L.bossState === 'active' ? aliveBosses() : [];
-  bosses.forEach((b, k) => {
-    const by = base - (46 + k * 28) * u, bbw = Math.min(300 * u, LW * .82), bx = LW / 2 - bbw / 2;
-    txt(BOSS_NAMES[b.type] + (b.shield ? '  ·  terlindung perisai' : ''), bx, by - 9 * u, 12 * u, b.p2 && L.bosses.length > 1 ? '#ff9a6a' : '#e8d9b0', 'left', SERIF, '400');
-    ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(bx - 2, by - 2, bbw + 4, 9 * u);
-    ctx.fillStyle = '#e8d0a0'; ctx.fillRect(bx, by, bbw * b.hpLag / b.maxHp, 5 * u);
-    ctx.fillStyle = '#9a1c16'; ctx.fillRect(bx, by, bbw * b.hp / b.maxHp, 5 * u);
-  });
+  // bar bos (level kembar: ditumpuk, satu bar per bos yang masih hidup). Layar komputer berdua: sekali saja di atas layar.
+  const bosses = L.bossState === 'active' && !oneScreenTop() ? aliveBosses() : [];
+  bosses.forEach((b, k) => drawBossBar(b, LW, base - (46 + k * 28) * u));
   // pesan & tutorial
   let my = base - (bosses.length ? 80 + (bosses.length - 1) * 28 : 34) * u;
   if (p.msg) { const a = clamp(Math.min(p.msg.t * 6, (p.msg.dur - p.msg.t) * 3), 0, 1); ctx.globalAlpha = a; txt(p.msg.text, LW / 2, my, 13 * u, '#fff1d0'); ctx.globalAlpha = 1; my -= 20 * u; }
@@ -95,7 +89,20 @@ function drawHUD(p, LW, LH) {
     txt('Gugur — rekanmu bisa membangkitkanmu di api unggun', LW / 2, my, 12 * u, '#c8b8a8'); my -= 18 * u;
     if (G.solo) { txt('atau jeda (‖) → MENYERAH untuk bangkit sekarang', LW / 2, my, 10.5 * u, 'rgba(232,217,176,.7)'); my -= 20 * u; }
   }
-  // banner
+  if (!oneScreenTop()) drawBanners(LW, LH);
+}
+
+// Layar komputer berdua (kolom berdampingan): bar bos & banner milik bersama, digambar sekali melintang layar
+const oneScreenTop = () => uprightView() && frames().length > 1;
+function drawBossBar(b, LW, by) {
+  const u = U, bbw = Math.min(300 * u, LW * .82), bx = LW / 2 - bbw / 2;
+  txt(BOSS_NAMES[b.type] + (b.shield ? '  ·  terlindung perisai' : ''), bx, by - 9 * u, 12 * u, b.p2 && L.bosses.length > 1 ? '#ff9a6a' : '#e8d9b0', 'left', SERIF, '400');
+  ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(bx - 2, by - 2, bbw + 4, 9 * u);
+  ctx.fillStyle = '#e8d0a0'; ctx.fillRect(bx, by, bbw * b.hpLag / b.maxHp, 5 * u);
+  ctx.fillStyle = '#9a1c16'; ctx.fillRect(bx, by, bbw * b.hp / b.maxHp, 5 * u);
+}
+function drawBanners(LW, LH) {
+  const u = U;
   for (const b of G.banners) {
     const a = clamp(Math.min(b.t * 2, (b.dur - b.t) * 1.5), 0, 1); if (a <= 0) continue;
     ctx.globalAlpha = a;
@@ -108,6 +115,12 @@ function drawHUD(p, LW, LH) {
     } else if (b.sub) txt(b.sub, LW / 2, cy, 15 * u, b.color, 'center', SERIF, 'italic 400');
     ctx.globalAlpha = 1;
   }
+}
+function drawSharedTop() { // dipanggil render() setelah HUD
+  if (!oneScreenTop()) return;
+  baseT();
+  if (L.bossState === 'active') aliveBosses().forEach((b, k) => drawBossBar(b, W, (58 + k * 28) * U)); // di bawah tombol jeda
+  drawBanners(W, H);
 }
 // ---------- petunjuk tombol: label + garis panah langsung ke tiap tombol ----------
 // Label disusun bertingkat (tombol paling kiri paling bawah) supaya garisnya tidak menembus label lain.
@@ -559,7 +572,7 @@ function noteLines(p, x, y, align, joy, remind = true) {
 function keyRows(p) {
   const [a1, a2] = CALLOUTS[p.weapon];
   if (SAVE.ctrl === 'pad') return [ // HP dipegang mendatar
-    ['HP kiri', 'Bergerak', ''], ['HP kanan atas', a1[0], a1[1] + ' · geser = bidik'], ['HP kanan bawah', a2[0], 'geser = arah'],
+    ['HP kiri', 'Bergerak', ''], ['HP kanan bawah', a1[0], a1[1] + ' · geser = bidik'], ['HP kanan atas', a2[0], 'geser = arah'],
     ['Pinggir atas', 'Ganti senjata', ''], ['Pinggir bawah', 'Minum ramuan', ''],
   ];
   if (mouseCtrl() && p.i === 0) {

@@ -5,7 +5,7 @@
 //  Sama seperti kontroler lain, HP hanya mengisi IN[i] (lihat pollPad), jadi logika game tidak berubah.
 //
 //  Susunan HP (tata letak "aksi" milik pad/):
-//    kiri = gerak · kanan atas (berarah) = serang · kanan bawah (berarah) = tameng/guling
+//    kiri = gerak · kanan atas (berarah) = tameng/guling · kanan bawah (berarah) = serang
 //    pinggir atas = ganti senjata · pinggir bawah = minum ramuan
 //  HP bernomor 1 = P1, nomor 2 = P2 (mode solo: hanya nomor 1; P2 = bot). HP lain diabaikan.
 // =====================================================================
@@ -44,8 +44,9 @@ function padHost(onUpdate) {
     susunan: CoopPad.TATA.aksi({
       nama: 'barakembar',
       gerak: { id: 'gerak', label: 'GERAK' },
-      arahAtas: { id: 'serang', label: 'SERANG', warna: '#ffb347', petunjuk: 'pedang: ketuk · busur: tahan & lepas · geser = bidik' },
-      arahBawah: { id: 'tameng', label: 'TAMENG / GULING', warna: '#62d6cf', petunjuk: 'pedang: tahan · busur: ketuk · geser = arah' },
+      // hasil uji pemilik (27-11-2026): serang di bawah (jempol bertumpu lebih alami), bertahan di atas
+      arahAtas: { id: 'tameng', label: 'TAMENG / GULING', warna: '#62d6cf', petunjuk: 'pedang: tahan · busur: ketuk · geser = arah' },
+      arahBawah: { id: 'serang', label: 'SERANG', warna: '#ffb347', petunjuk: 'pedang: ketuk · busur: tahan & lepas · geser = bidik' },
       tombolAtas: { id: 'ganti', label: 'GANTI', warna: '#e8d9b0' },
       tombolBawah: { id: 'ramuan', label: 'RAMUAN', warna: '#ff8a70' },
     }),
