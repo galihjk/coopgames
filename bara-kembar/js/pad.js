@@ -37,6 +37,7 @@ const PADS = { host: null, kode: null, url: null, galat: null, memuat: false };
 // jadi tiap tekanan dijadikan "denyut" tombol beberapa saat agar pressed()/released() di game melihatnya.
 const PAD_PULSE = [0, 1].map(() => ({ serang: -9, tameng: -9, ganti: -9, ramuan: -9 }));
 const PAD_WAIT = [false, false];
+const PAD_LOCK = [null, null]; // arah hadap yang dikunci selama SERANG/TAMENG ditahan tanpa digeser
 const padOn = () => SAVE.ctrl === 'pad' && !!PADS.host;
 const padSlot = p => p.nomor - 1 < (G.solo ? 1 : 2) ? p.nomor - 1 : -1;
 const padPlayer = i => PADS.host ? [...PADS.host.pemain.values()].find(p => padSlot(p) === i) : null;
@@ -88,8 +89,13 @@ function pollPad() {
     // tombol 3 di game: ketuk = ganti, tahan ≥0,38 dtk = ramuan. Di HP keduanya tombol terpisah,
     // jadi GANTI = denyut singkat, RAMUAN = denyut cukup panjang untuk memicu minum.
     n.h[2] = since('ganti') < .1 || since('ramuan') < .45 ? 1 : 0;
-    // zona berarah yang digeser = arah bidik/arah tameng (terpisah dari arah gerak)
-    n.aim = s.tahan && (s.x || s.y) ? Math.atan2(s.y, s.x) : t.tahan && (t.x || t.y) ? Math.atan2(t.y, t.x) : null;
+    // Zona berarah yang digeser = arah bidik/arah tameng (terpisah dari arah gerak). Ditahan tanpa digeser:
+    // arah hadap TERKUNCI ke arah saat mulai ditahan (uji pemilik 27-11-2026: dulu ikut joystick gerak, membingungkan),
+    // jadi joystick gerak hanya menggeser pelan sambil tetap menghadap musuh.
+    const hold = s.tahan || t.tahan;
+    if (!hold) PAD_LOCK[i] = null;
+    else if (PAD_LOCK[i] == null) PAD_LOCK[i] = players[i].face;
+    n.aim = s.tahan && (s.x || s.y) ? Math.atan2(s.y, s.x) : t.tahan && (t.x || t.y) ? Math.atan2(t.y, t.x) : hold ? PAD_LOCK[i] : null;
   }
 }
 function padVib(i, ms) { const p = padPlayer(i); if (p && p.tersambung) PADS.host.getar(p, ms); }

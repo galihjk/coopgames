@@ -91,7 +91,8 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
   karena layar pendek. Arah dikunci `landscape`; bila HP tetap tegak, layar hanya menampilkan "Putar HP".
 - **Layar + HP (`pad.js`):** HP bernomor 1 = P1, 2 = P2 (solo: hanya 1), HP lain diabaikan. Susunan sendiri
   `PAD_SUSUNAN` (bukan `TATA.aksi`): kiri gerak; kanan = TAMENG (dalam) & SERANG (tepi) BERDAMPINGAN, setinggi layar;
-  pita atas GANTI & RAMUAN. Uji pemilik 27-11-2026: serang/tameng bertumpuk atas-bawah tidak nyaman. Zona berarah
+  pita atas GANTI & RAMUAN. Uji pemilik 27-11-2026: serang/tameng bertumpuk atas-bawah tidak nyaman. Selama SERANG/TAMENG
+  ditahan tanpa digeser, arah hadap terkunci (`PAD_LOCK`), joystick gerak hanya menggeser pelan. Zona berarah
   yang digeser = `IN[i].aim`. Tiap tekanan dijadikan denyut tombol singkat (`PAD_PULSE`) agar ketukan yang selesai di
   antara dua paket tetap terbaca; RAMUAN = denyut 0,45 dtk karena game memakai "tahan tombol 3" untuk minum.
   HP terputus/diam saat bermain → jeda; status tiap HP tampil di layar jeda. Warna di HP = warna karakter (`p.warna`).
