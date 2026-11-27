@@ -38,6 +38,8 @@ const PADS = { host: null, kode: null, url: null, galat: null, memuat: false };
 const PAD_PULSE = [0, 1].map(() => ({ serang: -9, tameng: -9, ganti: -9, ramuan: -9 }));
 const PAD_WAIT = [false, false];
 const PAD_LOCK = [null, null]; // arah hadap yang dikunci selama SERANG/TAMENG ditahan tanpa digeser
+// arah bidik terakhir tetap dipakai sebentar setelah dilepas: anak panah lepas di frame yang sama dengan jempol diangkat
+const PAD_LAST = [0, 1].map(() => ({ aim: null, t: -9 })), PAD_AIM_KEEP = .2;
 const padOn = () => SAVE.ctrl === 'pad' && !!PADS.host;
 const padSlot = p => p.nomor - 1 < (G.solo ? 1 : 2) ? p.nomor - 1 : -1;
 const padPlayer = i => PADS.host ? [...PADS.host.pemain.values()].find(p => padSlot(p) === i) : null;
@@ -96,6 +98,9 @@ function pollPad() {
     if (!hold) PAD_LOCK[i] = null;
     else if (PAD_LOCK[i] == null) PAD_LOCK[i] = players[i].face;
     n.aim = s.tahan && (s.x || s.y) ? Math.atan2(s.y, s.x) : t.tahan && (t.x || t.y) ? Math.atan2(t.y, t.x) : hold ? PAD_LOCK[i] : null;
+    const last = PAD_LAST[i];
+    if (n.aim != null) { last.aim = n.aim; last.t = G.t; }
+    else if (G.t - last.t < PAD_AIM_KEEP) n.aim = last.aim; // uji pemilik: panah dulu melesat ke arah gerak saat dilepas
   }
 }
 function padVib(i, ms) { const p = padPlayer(i); if (p && p.tersambung) PADS.host.getar(p, ms); }
