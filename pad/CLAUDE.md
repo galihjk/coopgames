@@ -82,6 +82,8 @@ Skrip uji disimpan di scratchpad, bukan di repo.
    Untuk meniru jalur langsung gagal: ganti `window.Peer` di iframe HP dengan subclass yang
    memakai `config:{iceServers:[], iceTransportPolicy:'relay'}`.
 
-## Belum diuji di HP sungguhan
-- Tata letak `aksi` versi dua zona berarah (RANGED/SHIELD + MELEE/DASH), termasuk rasa isi tenaga.
-- Menutup browser HP lalu memindai lagi, dan memuat ulang halaman layar, di jaringan sungguhan.
+## Hasil uji di HP sungguhan
+- 25-11-2026: tata letak `aksi` versi dua zona berarah (contoh RANGED/SHIELD + MELEE/DASH) dinyatakan
+  **OK** oleh pemilik di halaman `uji-koneksi` (WiFi router yang sama).
+- Belum dilaporkan khusus: menutup browser HP lalu memindai lagi, dan memuat ulang halaman layar,
+  di jaringan sungguhan (sudah lulus uji otomatis).

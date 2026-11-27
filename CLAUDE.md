@@ -14,6 +14,7 @@ Kumpulan game **co-op** di browser (semua pemain satu tim). Jumlah pemain dan ca
 | `bara-kembar/` | Bara Kembar: souls-like 10 level | 1–2 (solo + bot) | Satu HP, berhadapan |
 | `dungeon-duo-portrait/` | Dungeon Duo: dungeon tanpa akhir | 1–2 (solo + bot) | Satu HP, berdampingan |
 | `nebula-duo/` | Nebula Duo: shooter vertikal | 1–2 (solo + bot) | Satu HP, berdampingan |
+| `jayaverse-laga/` | Jayaverse Laga: Judul Tanpa Nama (**perencanaan, belum ada kode**; lihat `RENCANA.md`) | 1–4 | Layar + HP, layar terbelah |
 
 Bukan game, tapi fondasi format **"Layar + HP pengendali"**: layar komputer/TV + tiap pemain memakai HP-nya
 sebagai kontroler.
