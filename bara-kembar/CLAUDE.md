@@ -80,6 +80,8 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
   dipilih (sentuh tegak vs layar komputer). Tombol "PEMAIN & KONTROL" di layar judul kembali ke menu ini.
   Kontroler dengan `ready:false` tampil redup "Segera". Rencana tahap berikutnya: (5) pilihan bahasa. "Cara main" diingat per kontroler (`G.introSeen[ctrl]`);
   di layar komputer isinya daftar tombol (`keyRows`/`drawKeyHelp`), bukan label berpanah.
+- **Klik/ketukan yang menutup menu bukan serangan:** setelah klik OK/LANJUT/MULAI membawa ke permainan, tombol mouse
+  diabaikan sampai dilepas (`MOUSE.wait`); ketukan SERANG sebagai OK di HP juga (`PAD_WAIT`).
 - **Kontroler Mouse (tanpa WASD):** berjalan ke arah penunjuk, diam bila penunjuk dekat karakter; selama klik kiri/kanan
   ditahan karakter berhenti dan hanya menghadap penunjuk. Tanpa itu, menangkis sambil menjaga jarak mustahil.
   Tombol mouse dibaca dari `e.buttons` (Pointer Events tak memicu pointerdown untuk tombol kedua); scroll dijeda 0,35 dtk.
@@ -87,9 +89,9 @@ dan masalah gestur 3 jari ada di `../CLAUDE.md`.
   layar komputer (`uprightView()`), tetapi tombol sentuh tetap ada: joystick kiri bawah, tombol kanan bawah
   (`layoutControls`), label petunjuk di atas tombol (`calloutBase`). Menu diperkecil lebih sedikit (`FRAME_UNITS_HP`)
   karena layar pendek. Arah dikunci `landscape`; bila HP tetap tegak, layar hanya menampilkan "Putar HP".
-- **Layar + HP (`pad.js`):** HP bernomor 1 = P1, 2 = P2 (solo: hanya 1), HP lain diabaikan. Susunan `TATA.aksi`:
-  kiri gerak, kanan atas TAMENG/GULING (berarah), kanan bawah SERANG (berarah; dibalik atas permintaan pemilik setelah
-  uji berdua), pinggir GANTI & RAMUAN. Zona berarah
+- **Layar + HP (`pad.js`):** HP bernomor 1 = P1, 2 = P2 (solo: hanya 1), HP lain diabaikan. Susunan sendiri
+  `PAD_SUSUNAN` (bukan `TATA.aksi`): kiri gerak; kanan = TAMENG (dalam) & SERANG (tepi) BERDAMPINGAN, setinggi layar;
+  pita atas GANTI & RAMUAN. Uji pemilik 27-11-2026: serang/tameng bertumpuk atas-bawah tidak nyaman. Zona berarah
   yang digeser = `IN[i].aim`. Tiap tekanan dijadikan denyut tombol singkat (`PAD_PULSE`) agar ketukan yang selesai di
   antara dua paket tetap terbaca; RAMUAN = denyut 0,45 dtk karena game memakai "tahan tombol 3" untuk minum.
   HP terputus/diam saat bermain → jeda; status tiap HP tampil di layar jeda. Warna di HP = warna karakter (`p.warna`).

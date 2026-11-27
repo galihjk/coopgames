@@ -102,7 +102,7 @@ cv.addEventListener('pointerdown', e => {
     return;
   }
   trackMouse(e);
-  if (G.mode !== 'play') { uiTap(q); return; }
+  if (G.mode !== 'play') { uiTap(q); if (G.mode === 'play') MOUSE.wait = true; return; } // klik OK/LANJUT/MULAI bukan serangan
   if (Math.hypot(q.x - W / 2, q.y - 20 * U) < 26 * U) { MOUSE.b = 0; togglePause(); return; }
   if (sharedScreen()) return; // layar komputer: tidak ada tombol sentuh
   const a = assignTouch(q);
@@ -168,6 +168,7 @@ function pollMouse() {
   const cur = on ? 'crosshair' : 'default'; if (cv.style.cursor !== cur) cv.style.cursor = cur;
   const n = IN[0]; n.mb = [0, 0, 0]; n.aim = null;
   if (!on || !MOUSE.on || !L) return;
+  if (MOUSE.wait) { if (MOUSE.b) return; MOUSE.wait = false; } // tunggu sampai tombol yang menekan menu dilepas
   n.mb = [MOUSE.b & 1 ? 1 : 0, MOUSE.b & 2 ? 1 : 0, MOUSE.b & 4 ? 1 : 0];
   for (let k = 0; k < 3; k++) if (n.mb[k]) n.h[k] = 1;
   const p = players[0], sx = (p.x - cam.x) * cam.z + W / 2, sy = (p.y - cam.y) * cam.z + H / 2;

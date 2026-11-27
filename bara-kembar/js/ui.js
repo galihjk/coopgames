@@ -572,8 +572,8 @@ function noteLines(p, x, y, align, joy, remind = true) {
 function keyRows(p) {
   const [a1, a2] = CALLOUTS[p.weapon];
   if (SAVE.ctrl === 'pad') return [ // HP dipegang mendatar
-    ['HP kiri', 'Bergerak', ''], ['HP kanan bawah', a1[0], a1[1] + ' · geser = bidik'], ['HP kanan atas', a2[0], 'geser = arah'],
-    ['Pinggir atas', 'Ganti senjata', ''], ['Pinggir bawah', 'Minum ramuan', ''],
+    ['HP kiri', 'Bergerak', ''], ['Kanan, di tepi', a1[0], a1[1] + ' · geser = bidik'], ['Kanan, sebelah dalam', a2[0], 'geser = arah'],
+    ['Atas kanan, dalam', 'Ganti senjata', ''], ['Atas kanan, tepi', 'Minum ramuan', ''],
   ];
   if (mouseCtrl() && p.i === 0) {
     const walk = mouseWalks();
